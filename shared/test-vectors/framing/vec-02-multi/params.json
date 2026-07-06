@@ -1,0 +1,7 @@
+{
+  "urType": "blink-drop",
+  "maxFragmentLength": 200,
+  "seqLen": 16,
+  "name": "blob.bin",
+  "mediaType": "application/octet-stream"
+}

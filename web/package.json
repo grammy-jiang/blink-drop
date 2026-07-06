@@ -1,0 +1,38 @@
+{
+  "name": "blink-drop-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Blink-Drop web sender — offline animated-QR file transfer (sender half). See ../docs.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome lint",
+    "format": "biome format --write",
+    "check": "biome check",
+    "check:fix": "biome check --write",
+    "gen:vectors": "tsx scripts/gen-vectors.ts",
+    "gen:static-qr": "tsx scripts/gen-static-qr.ts"
+  },
+  "dependencies": {
+    "@ngraveio/bc-ur": "^1.1.13",
+    "buffer": "^6.0.3",
+    "jsqr": "^1.4.0",
+    "process": "^0.11.10",
+    "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.2",
+    "@types/node": "^22.20.0",
+    "@types/qrcode-generator": "^1.0.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-singlefile": "^2.1.0",
+    "vitest": "^2.1.8"
+  }
+}

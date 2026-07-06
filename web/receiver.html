@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blink-Drop — Receiver (M0)</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+      h1 { font-size: 1.4rem; }
+      button { padding: 0.4rem 0.9rem; margin-right: 0.5rem; }
+      #progress { margin: 0.6rem 0; color: #555; font-variant-numeric: tabular-nums; }
+      #result { margin-top: 1rem; font-family: ui-monospace, monospace; font-size: 0.9rem; white-space: pre-wrap; }
+      #result a { display: inline-block; margin-top: 0.6rem; }
+      .note { color: #777; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Blink-Drop — Receiver <span class="note">(M0 throwaway browser proof)</span></h1>
+    <p class="note">Self-test proves the whole pipeline without a camera. Start camera to scan a real sender animation on your phone.</p>
+    <button type="button" id="selftest">Run self-test (no camera)</button>
+    <button type="button" id="streamtest">Run stream test (synthetic camera)</button>
+    <button type="button" id="camera">Start camera</button>
+    <div id="progress"></div>
+    <div id="cameraMount"></div>
+    <div id="result"></div>
+    <script type="module" src="/src/ui/receiver.ts"></script>
+  </body>
+</html>
