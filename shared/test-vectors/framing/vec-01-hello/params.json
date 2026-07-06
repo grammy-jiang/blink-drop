@@ -1,0 +1,7 @@
+{
+  "urType": "blink-drop",
+  "maxFragmentLength": 600,
+  "seqLen": 1,
+  "name": "hello.txt",
+  "mediaType": "text/plain"
+}

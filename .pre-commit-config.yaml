@@ -1,0 +1,41 @@
+# Blink-Drop pre-commit hooks. Enable once with: pre-commit install
+# Standard file hygiene (repo-wide) + the web/ quality gates (Biome lint+format,
+# TypeScript typecheck, vitest). iOS (SwiftFormat/SwiftLint) hooks get added when
+# ios/ lands (MVP-1).
+minimum_pre_commit_version: "3.0.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+
+  - repo: local
+    hooks:
+      - id: web-biome
+        name: biome check (lint + format) [web]
+        entry: bash -c 'cd web && npm run check:fix'
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: web-typecheck
+        name: tsc typecheck [web]
+        entry: bash -c 'cd web && npm run typecheck'
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: web-test
+        name: vitest [web]
+        entry: bash -c 'cd web && npm test'
+        language: system
+        files: ^web/
+        pass_filenames: false

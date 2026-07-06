@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blink-Drop — Sender</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+      h1 { font-size: 1.4rem; }
+      #controls { margin: 1rem 0; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+      #plan { margin: 0.5rem 0; color: #333; }
+      #status { margin: 0.5rem 0; color: #555; font-variant-numeric: tabular-nums; }
+      canvas { image-rendering: pixelated; border: 1px solid #ddd; max-width: 100%; }
+      button { padding: 0.3rem 0.8rem; }
+      .note { color: #777; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Blink-Drop — Sender</h1>
+    <p class="note">Pick a file. It is processed on this machine and never uploaded. Point the phone receiver at the animation; keep it playing until the phone shows Verified.</p>
+    <input type="file" id="file" />
+    <div id="plan"></div>
+    <div id="controls">
+      <label>Rate <input type="range" id="rate" min="2" max="15" value="8" /> <span id="rateVal">8</span> fps</label>
+      <label>Size <input type="range" id="scale" min="2" max="12" value="6" /> <span id="scaleVal">6</span> px/module</label>
+      <button type="button" id="stop">Stop</button>
+    </div>
+    <canvas id="qr" width="10" height="10"></canvas>
+    <div id="status"></div>
+    <script type="module" src="/src/ui/sender.ts"></script>
+  </body>
+</html>
