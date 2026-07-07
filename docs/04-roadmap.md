@@ -96,7 +96,7 @@ Every criterion is claimed by at least one milestone; none is left to chance.
 
 ## Explicitly deferred (v1.1+ backlog)
 
-Per blueprint §9: the **native iOS app** (deferred — needs a Mac), Android receiver. None gates v1. *(Notes: PWA packaging shipped in v0.1.0; passphrase **encryption** shipped in **v0.3** ([`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md), compress-**then**-encrypt); **resume-across-restart** shipped in **v0.6** ([`11-implementation-plan-resume.md`](11-implementation-plan-resume.md)); **multi-file transfer** shipped in **v0.7** ([`13-implementation-plan-multifile.md`](13-implementation-plan-multifile.md), native envelope + per-file verify, `.zip` fallback v0.7.1) — all three no longer backlog.)*
+Per blueprint §9: the **native iOS app** (deferred — needs a Mac), Android receiver. Plus **sender authenticity + replay resistance** — signatures / pinned keys / receiver nonce — deliberately **out of scope** while Blink-Drop is a file tool (not a command/authorization channel); design memo + trigger conditions in [`17-future-authenticity.md`](17-future-authenticity.md). None gates v1. *(Notes: PWA packaging shipped in v0.1.0; passphrase **encryption** shipped in **v0.3** ([`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md), compress-**then**-encrypt); **resume-across-restart** shipped in **v0.6** ([`11-implementation-plan-resume.md`](11-implementation-plan-resume.md)); **multi-file transfer** shipped in **v0.7** ([`13-implementation-plan-multifile.md`](13-implementation-plan-multifile.md), native envelope + per-file verify, `.zip` fallback v0.7.1) — all three no longer backlog.)*
 
 ## Status of gates already passed
 
