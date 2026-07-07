@@ -29,6 +29,7 @@
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-1 | Container pivot (accepted decision) | §2.3, §4.6, §7, §9, §10, §12, §17, §18, §19, §20, §22, §23, §24; ADR-0006 superseded | Receiver: native iOS app → installable PWA (developer has no Mac) |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-2 | Decision reversal (feature) | §12, §13, §14, §17, §22, §23, §26, §27; ADR-0007 amended, ADR-0010 new | **DEC-1 reversed**: opt-in passphrase encryption shipped (v0.3). See the Update-2 addendum + `docs/07-implementation-plan-v0.3-encryption.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-3 | Feature (KDF option) + CSP change | §17 (CSP/SG), §22; ADR-0010 amended, ADR-0011 new | Argon2id **opt-in** KDF (v0.4); `'wasm-unsafe-eval'` added to CSP. See the Update-3 addendum + `docs/09-implementation-plan-argon2.md`. |
+| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-4 | Feature (resume) + data-at-rest | §10, §14, §17; ADR-0012 new | Receiver resume across restart; partial stored **encrypted at rest** (v0.6). See the Update-4 addendum + `docs/11-implementation-plan-resume.md`. |
 
 ---
 
@@ -431,3 +432,58 @@ minimal. *Consequences:* wasm allowed in `script-src`; larger single-file sender
 **Architecture Update Required? — Yes, applied by this addendum (update-3).** Read
 the base design as patched by §5 (update-1), §U2.3 (update-2), and §U3.2
 (update-3). Fold all three into a canonical document at the next `materialize`.
+
+---
+
+## Update-4 (2026-07-07): Resume across restart — encrypted-at-rest partials (v0.6)
+
+> Receiver-only, additive. **No protocol / wire / transfer-encryption change.**
+> Full design: [`11-implementation-plan-resume.md`](11-implementation-plan-resume.md).
+
+### U4.1 Accepted decision and source
+
+| Field | Value |
+|-------|-------|
+| Decision | Persist a partial receiver assembly so an interrupted scan resumes instead of restarting at 0% |
+| Source | **Explicit user decision**, 2026-07-07; at-rest approach confirmed via AskUserQuestion |
+| Note | "Encrypted-only" proved infeasible — the `encrypted` flag is inside the fountain-coded message, unreadable mid-scan. Instead: persist all large transfers, encrypting the stored partial at rest with a receiver-local **non-extractable** key. |
+| Reversibility | High — isolated in `receiver/resume.ts`; best-effort; single slot; nothing else depends on it. |
+
+### U4.2 Changes (patch the base design)
+
+- **§14 state model:** add a **Resumable** entry state (on boot, if a non-expired
+  partial exists, offer *Resume (X%)* / *Start fresh*) and a **Resuming** transient
+  (replay persisted parts into a fresh assembler, then scan).
+- **§17 security — NEW data-at-rest note:** the base design stated "no secrets
+  stored." The receiver now stores, **in IndexedDB**, an **AES-GCM-encrypted**
+  partial (the received UR part strings) plus a **non-extractable AES-GCM key**.
+  So **no readable file bytes are at rest for any transfer** (plaintext or
+  encrypted); cleared on verified success; 24 h expiry; only above ~40 frames.
+  Does **not** defend a full-device compromise (nothing local can). This is a
+  scoped, honest relaxation of "nothing stored," made safe by the at-rest cipher.
+- **§10 components:** the receiver gains a **Resume store** (`receiver/resume.ts`)
+  beside Core.
+
+### U4.3 ADR
+
+**ADR-0012 — Resume via encrypted-at-rest partials (new).** *Status:* accepted
+(user-confirmed 2026-07-07); implemented v0.6. *Decision:* persist the received UR
+part strings (replayed on resume), AES-GCM-encrypted under a receiver-local
+**non-extractable** key kept in IndexedDB. *Why:* resume without ever writing
+readable file bytes to disk. *Alternatives rejected:* encrypted-only (undetectable
+mid-scan), plaintext-at-rest (declined by the user), a protocol change to surface
+the encryption flag (bigger; a wire change). *Consequences:* a small at-rest data
+footprint (cleared on success, 24 h expiry); does not defend full-device
+compromise. *Reversibility:* high.
+
+### U4.4 Security review
+
+**No DEC-2 re-run** — the wire format is unchanged. The only new surface is
+data-at-rest, handled by the non-extractable-key AES-GCM above. Browser-verified:
+the stored blob is ciphertext (no readable parts) and the key is non-extractable.
+
+### U4.5 Verdict
+
+**Architecture Update Required? — Yes, applied by this addendum (update-4).** Read
+the base design as patched by §5 (update-1), §U2.3 (update-2), §U3.2 (update-3),
+and §U4.2 (update-4). Fold all into a canonical document at the next `materialize`.
