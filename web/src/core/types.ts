@@ -52,6 +52,14 @@ export const MAX_PBKDF2_ITERATIONS = 10_000_000; // ~16× the default; bounded, 
 export const MAX_ARGON2 = { m: 262_144, t: 16, p: 4 } as const; // 256 MiB / t=16 / p=4 — generous but bounded
 export const MAX_SEQ_LEN = 262_144; // UR part-count cap (≫ any real transfer; blocks new Array(seqLength) bombs)
 
+// Multi-file transfer (protocol §4.2, docs/13). A message with manifest key 0 = 2
+// is a multi-file envelope: [ manifest{0:2}, [ [meta,payload], … ] ].
+export const ENVELOPE_VERSION_MULTIFILE = 2;
+export const MAX_FILE_COUNT = 32; // cap the number of files in one transfer
+// Total decompressed bytes across a multi-file set — same ceiling as one file
+// (HARD_MAX_DECOMPRESSED_BYTES, inlined to avoid a forward reference).
+export const MAX_TOTAL_DECOMPRESSED_BYTES = 8 * 1024 * 1024;
+
 export const SALT_BYTES = 16; // 128-bit KDF salt
 export const GCM_NONCE_BYTES = 12; // 96-bit AES-GCM nonce
 export const KDF_KEY_BYTES = 32; // derived AES-256 key length
