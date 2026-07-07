@@ -20,6 +20,10 @@
       .passrow { display: block; margin: 0.6rem 0 0.2rem; }
       .passrow input { margin-left: 0.4rem; padding: 0.25rem 0.4rem; }
       #passnote { min-height: 1.2em; }
+      .dropzone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 1rem; margin: 0.4rem 0; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+      .dropzone.dragover { border-color: #2563eb; background: #eff6ff; }
+      .dz-hint { color: #777; font-size: 0.9rem; }
+      #sizewarn { color: #b45309; min-height: 1.2em; margin: 0.3rem 0; }
     </style>
   </head>
   <body>
@@ -28,14 +32,18 @@
       <canvas id="receiverqr" width="10" height="10"></canvas>
       <div id="receiverqrcap"></div>
     </div>
-    <p class="note">Pick a file. It is processed on this machine and never uploaded. Point the phone receiver at the animation; keep it playing until the phone shows Verified.</p>
+    <p class="note">Pick or drop a file. It is processed on this machine and never uploaded. Point the phone receiver at the animation; keep it playing until the phone shows Verified.</p>
     <label class="passrow">Passphrase (optional)
       <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="leave blank = unencrypted" />
     </label>
     <div id="strength" class="note"></div>
     <label class="passrow"><input type="checkbox" id="argon" /> Stronger key derivation (Argon2id) — slightly slower, loads a small module the first time</label>
     <div id="passnote" class="note"></div>
-    <input type="file" id="file" />
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="file" />
+      <span class="dz-hint">or drop a file here</span>
+    </div>
+    <div id="sizewarn"></div>
     <div id="plan"></div>
     <div id="controls">
       <label>Rate <input type="range" id="rate" min="2" max="15" value="8" /> <span id="rateVal">8</span> fps</label>

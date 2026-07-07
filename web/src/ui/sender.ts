@@ -2,6 +2,7 @@ import "../polyfill.js";
 import { buildMessage, DEFAULT_MAX_FRAGMENT_LENGTH, qrPartStream, systematicQrParts } from "../core/index.js";
 import { FramePlayer } from "../player/loop.js";
 import { renderTextToCanvas } from "../qr/render.js";
+import { describeSize } from "./size.js";
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -22,6 +23,8 @@ const passInput = el<HTMLInputElement>("pass");
 const passNote = el<HTMLDivElement>("passnote");
 const argonBox = el<HTMLInputElement>("argon");
 const strengthEl = el<HTMLDivElement>("strength");
+const sizeWarnEl = el<HTMLDivElement>("sizewarn");
+const dropzone = el<HTMLDivElement>("dropzone");
 
 const player = new FramePlayer(canvas, { fps: Number(rate.value), scale: Number(scale.value) });
 let seqLen = 0;
@@ -85,13 +88,13 @@ passInput.addEventListener("input", () => {
   updateStrength();
 });
 
-fileInput.addEventListener("change", async () => {
-  const file = fileInput.files?.[0];
-  if (!file) return;
+// Shared by click-to-pick and drag-and-drop.
+async function processFile(file: File): Promise<void> {
   const passphrase = passInput.value || undefined;
   const kdf = passphrase && argonBox.checked ? "argon2id" : undefined;
   statusEl.textContent = passphrase ? (kdf ? "Encrypting (stronger)…" : "Encrypting…") : "Preparing…";
   const bytes = new Uint8Array(await file.arrayBuffer());
+  sizeWarnEl.textContent = describeSize(bytes.length).warn; // soft/hard ceiling — advisory, never blocks
   const input = { bytes, name: file.name, mediaType: file.type || "application/octet-stream" };
 
   const message = await buildMessage(input, { passphrase, kdf });
@@ -105,6 +108,24 @@ fileInput.addEventListener("change", async () => {
   player.load(parts);
   player.stop();
   player.start();
+}
+
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files?.[0];
+  if (file) void processFile(file);
+});
+
+// Drag-and-drop onto the zone runs the same path (blueprint §9 In-list).
+dropzone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropzone.classList.add("dragover");
+});
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("dragover");
+  const file = e.dataTransfer?.files?.[0];
+  if (file) void processFile(file);
 });
 
 // Render a static QR of the receiver page URL so the phone can open the PWA by
