@@ -2,7 +2,8 @@
 
 export const UR_TYPE = "blink-drop";
 
-// dCBOR header map keys (protocol §4).
+// dCBOR header map keys (protocol §4). In an encrypted envelope these same keys
+// form the INNER metadata map (sealed inside the ciphertext, docs/07 §4).
 export const HeaderKey = {
   name: 1,
   mediaType: 2,
@@ -10,6 +11,34 @@ export const HeaderKey = {
   sha256: 4,
   compression: 5,
 } as const;
+
+// Encrypted-envelope keys (docs/07 §4). The cleartext OUTER map carries only a
+// version marker + the enc-params map; key 0 (absent in a plaintext header)
+// discriminates encrypted from plaintext messages.
+export const OuterKey = {
+  version: 0,
+  enc: 6,
+} as const;
+
+// Keys inside the enc-params map (OuterKey.enc).
+export const EncKey = {
+  kdf: 1,
+  iter: 2,
+  salt: 3,
+  cipher: 4,
+  nonce: 5,
+} as const;
+
+export const ENVELOPE_VERSION_ENCRYPTED = 1;
+export const KDF_PBKDF2_SHA256 = "pbkdf2-sha256";
+export const CIPHER_AES_256_GCM = "aes-256-gcm";
+
+// PBKDF2 work factor (OWASP-2023 floor for PBKDF2-SHA256). Runs once per
+// transfer per side; well under a second on a phone. Tests/vectors override it
+// with a small count for speed — production uses this default.
+export const PBKDF2_ITERATIONS = 600_000;
+export const SALT_BYTES = 16; // 128-bit KDF salt
+export const GCM_NONCE_BYTES = 12; // 96-bit AES-GCM nonce
 
 export const Compression = {
   none: 0,
