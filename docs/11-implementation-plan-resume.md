@@ -60,4 +60,4 @@ Today an interrupted scan (app backgrounded, tab closed, phone locked) loses all
 4. Tag + GitHub release; Pages redeploys.
 5. T7 — user confirms resume on the iPhone.
 
-> **Aside (not this plan):** the top-level `README.md` is stale — it still says "native iOS receiver" and predates encryption/Argon2/drag-drop. Worth a quick refresh (and a possible **v1.0.0** milestone) independent of this feature.
+> **Aside (not this plan):** the top-level `README.md` and `web/README.md` were refreshed in the v0.6 consistency pass (they had said "native iOS receiver"). A **v1.0.0** milestone remains an option independent of this feature.
