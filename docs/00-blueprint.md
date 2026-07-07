@@ -71,7 +71,7 @@ The table figures are **conservative real-world estimates**, deliberately above 
 Two cooperating halves joined only by light:
 
 - **Sender** — a web page running in any modern browser on any machine with a screen. Zero installation, zero backend: the file is processed entirely on the sender's machine and never leaves it over any network. The page itself must be obtainable as a self-contained artifact that works with no connectivity at all (U1). Output is an animated sequence of QR frames displayed on screen in a loop.
-- **Receiver** — a native app on the user's phone. It watches the animation, collects frames in any order, reconstructs the file, verifies integrity, and exports it through the platform's standard sharing mechanisms.
+- **Receiver** — an installable web app (PWA) on the user's phone. It watches the animation, collects frames in any order, reconstructs the file, verifies integrity, and exports it through the platform's standard sharing mechanisms (the Web Share sheet).
 
 **Channel properties** (these drive the whole design):
 
@@ -221,7 +221,7 @@ Extracted from the systems reviewed in Appendix A — *workflow* lessons only; t
 
 Blink-Drop ships in a sequence, not one drop. The two staged precursors below are **build steps on the path to v1**, distinct from the permanently-excluded items that follow:
 
-- **M0 — protocol de-risk (precursor).** A *throwaway* browser-based receiver prototype, built *before* any native work, to prove the wire protocol end-to-end without the cost of learning the native platform first (Risk 6, `OQ-8`). It is discarded once the native receiver exists; it is not a shipped product surface.
+- **M0 — protocol de-risk (browser-only).** A browser-based receiver that proved the wire protocol end-to-end before committing to any device platform (Risk 6, `OQ-8`). *It was promoted to the product* — the v1 receiver is the PWA below (the native iOS app was deferred, so the browser receiver became the shipped surface rather than being discarded).
 - **v1 — the MVP proper.** The In list below.
 
 ### In (v1)
@@ -330,7 +330,7 @@ Adaptive stage routing for the design pipeline (RUN / DEFER / DONE), with depend
 |-------|----------|----------------|------------|
 | **protocol spec** (`01-protocol.md`) | **DONE** | The wire contract; OQ-1/2/5/6/7/10 resolved, adopt UR | blueprint |
 | **architecture-design** (`architecture --mode design`) | **RUN (next)** | Two containers + interface/data contracts + C4 + failure/observability need structuring before UX | blueprint, protocol |
-| **tech-stack-selection** (`architecture --mode stack`) | **DEFER (mostly decided)** | Stack already chosen and user-confirmed (adopt UR / URKit + bc-ur; vanilla TS + Vite; SwiftUI, iOS 17; gzip; SHA-256; single-file offline). Record as confirmed-provisional in the design; run `stack` only if a formal stack doc is wanted | architecture-design |
+| **tech-stack-selection** (`architecture --mode stack`) | **DEFER (mostly decided)** | Stack already chosen and user-confirmed (adopt UR/MUR; sender + PWA receiver both vanilla TS + Vite + @ngraveio/bc-ur; gzip; SHA-256; single-file offline sender + GitHub Pages. Native URKit/SwiftUI/iOS 17 deferred). Record as confirmed-provisional in the design; run `stack` only if a formal stack doc is wanted | architecture-design |
 | **ux-design** (`ux-design`) | **RUN (after architecture)** | Receiver UX is the failure-prone part (framing, progress, stall, verify states); needs a skill-format architecture-design doc as input | architecture-design |
 | **security-review** | **DONE (at protocol)** | DEC-2 pass completed in `01-protocol.md` §11 (confidentiality, integrity, injection/DoS, decompression-bomb, dual-use). Re-run if the wire format changes | protocol |
 | **test-design** | **DEFER** | Covered for now by the two-tier test vectors + sweep harness (`04-roadmap.md`) and the ux-design E2E scenario seeds; formalize at implementation-plan | ux-design, roadmap |
@@ -350,17 +350,20 @@ Reviewed 2026-07-06. Only workflow behavior was carried into this document; each
 ```
 blink-drop/
 ├── docs/
-│   ├── 00-blueprint.md        # this document — shared product definition
-│   ├── 01-protocol.md         # THE contract between the two sides
-│   ├── web/architecture.md    # sender implementation decisions
-│   ├── ios/architecture.md    # receiver implementation decisions
-│   └── ios/primer.md          # zero-to-device iOS onboarding
-├── web/                       # sender implementation (self-contained)
-├── ios/                       # receiver implementation (self-contained)
-└── shared/test-vectors/       # golden files both implementations must pass
+│   ├── 00-blueprint.md                     # this document — shared product definition
+│   ├── 01-protocol.md                      # THE contract between the two sides
+│   ├── blink-drop-architecture-design.md   # architecture (amended by the update note)
+│   ├── blink-drop-architecture-update.md   # the native→PWA receiver pivot
+│   ├── blink-drop-ux-design.md             # UX design
+│   ├── 05-implementation-plan.md           # the PWA-receiver build plan
+│   ├── web/architecture.md                 # sender implementation decisions
+│   └── ios/                                # DEFERRED future-native receiver reference (needs a Mac)
+├── web/                       # sender AND the PWA receiver (both TypeScript; reuse web/src/core)
+├── shared/test-vectors/       # golden files both sides must pass
+└── (ios/)                     # native receiver — deferred until a Mac is available
 ```
 
-**Hard rule:** `web/` and `ios/` never depend on each other — only on `01-protocol.md` and the shared test vectors. Either side must be extractable to its own repository mechanically.
+**Hard rule:** the **sender** and the **receiver** never depend on each other — only on `01-protocol.md` and the shared test vectors; either is extractable to its own repository. (In v0.1 both live in `web/` as separate entry points, reusing `web/src/core`; a future native receiver would live in `ios/`.)
 
 ## Appendix C — Working Assumptions
 

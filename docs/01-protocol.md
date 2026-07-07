@@ -181,7 +181,7 @@ A CRC-32 collision or a maliciously injected part cannot cause a *silently wrong
 
 ## 8. Compression (OQ-5)
 
-- **Algorithm: gzip/DEFLATE (zlib).** Native on both sides (web `CompressionStream('gzip')`, iOS zlib), so the offline single-file sender needs **no wasm/library blob** — which keeps the chosen single-file HTML packaging (OQ-9) trivial. zstd/brotli would compress ~10–20% better on text but each adds a dependency to *both* codebases and complicates offline packaging; not worth it for small files at MVP.
+- **Algorithm: gzip/DEFLATE (zlib).** Native in the browser (`CompressionStream` / `DecompressionStream('gzip')`) on both the sender and the PWA receiver — a future native iOS receiver would use zlib — so the offline single-file sender needs **no wasm/library blob** — which keeps the chosen single-file HTML packaging (OQ-9) trivial. zstd/brotli would compress ~10–20% better on text but each adds a dependency to *both* codebases and complicates offline packaging; not worth it for small files at MVP.
 - **Compressed bytes are opaque.** gzip output is *not* required to be byte-identical across implementations (it is not, in general). Integrity never depends on compressed-byte equality — only on `SHA-256(decompressed) == header.sha256`. This is why the SHA-256 is of the *original*, and why test vectors are two-tier (§10).
 - `compression = 0` (store) is allowed for already-compressed inputs where gzip would only add overhead; the sender may pick this when gzip fails to shrink the payload.
 
@@ -239,7 +239,9 @@ The adopt decision names specific reference-tested libraries; exact versions are
 | `ios/` | **URKit** (`BlockchainCommons/URKit`, Swift Package Manager) | Swift | UR/MUR encode+decode; the reference implementation |
 | `web/` | **bc-ur** (`@ngraveio/bc-ur`, npm) | TypeScript | UR/MUR encode+decode; passes the UR reference vectors |
 
-Both implement the *same* MUR spec and pass the same upstream vectors, so a part produced by one decodes in the other. Blink-Drop code on each side wraps only: (a) file → gzip → dCBOR header/message, and (b) Bytewords string ⇄ QR render/decode. The architecture docs decide the QR-generation library (web) and the camera/QR-decode API (iOS), and pin versions.
+Both implement the *same* MUR spec and pass the same upstream vectors, so a part produced by one decodes in the other. Blink-Drop code on each side wraps only: (a) file → gzip → dCBOR header/message, and (b) Bytewords string ⇄ QR render/decode.
+
+> **Update (2026-07-07):** The shipped v0.1 receiver is a **PWA** using **`@ngraveio/bc-ur`** (the same `web/` codec as the sender) with **getUserMedia + jsQR** for capture — not URKit. The `ios/` URKit row above and the iOS handoff in §13 are the **deferred native-iOS reference** (no Mac). The wire contract in this document is transport-neutral and unchanged. See [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
 
 ## 13. Handoff & follow-ups
 
