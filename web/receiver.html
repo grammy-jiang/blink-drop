@@ -17,13 +17,14 @@
     <style>
       :root { color-scheme: light dark; }
       * { box-sizing: border-box; }
+      html { height: 100%; }
       body {
         font-family: system-ui, sans-serif;
         margin: 0;
-        /* svh (small viewport height) = viewport with the toolbars shown; unlike
-           dvh/vh it never exceeds the visible area on iOS Safari, so a short
-           screen isn't scrollable into empty space. */
-        min-height: 100svh;
+        /* Percentage height (via html height:100%) fills the viewport without the
+           iOS dynamic-toolbar over-scroll — and without the top-align that vh/dvh/
+           svh caused. min-height (not height) so tall content can still grow + scroll. */
+        min-height: 100%;
         display: flex;
         flex-direction: column;
       }
