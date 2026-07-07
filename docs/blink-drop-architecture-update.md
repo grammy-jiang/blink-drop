@@ -28,6 +28,7 @@
 |------|-------------------|----------------|-------------|------------------------|-------|
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-1 | Container pivot (accepted decision) | §2.3, §4.6, §7, §9, §10, §12, §17, §18, §19, §20, §22, §23, §24; ADR-0006 superseded | Receiver: native iOS app → installable PWA (developer has no Mac) |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-2 | Decision reversal (feature) | §12, §13, §14, §17, §22, §23, §26, §27; ADR-0007 amended, ADR-0010 new | **DEC-1 reversed**: opt-in passphrase encryption shipped (v0.3). See the Update-2 addendum + `docs/07-implementation-plan-v0.3-encryption.md`. |
+| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-3 | Feature (KDF option) + CSP change | §17 (CSP/SG), §22; ADR-0010 amended, ADR-0011 new | Argon2id **opt-in** KDF (v0.4); `'wasm-unsafe-eval'` added to CSP. See the Update-3 addendum + `docs/09-implementation-plan-argon2.md`. |
 
 ---
 
@@ -368,3 +369,65 @@ v0.3 changed it. Outcome:
 **Architecture Update Required? — Yes, applied by this addendum (update-2).** Read
 the base design as patched by §5 (update-1) **and** §U2.3 (update-2). Fold both
 into a canonical document at the next `materialize`.
+
+---
+
+## Update-3 (2026-07-07): Argon2id opt-in KDF + CSP wasm allowance (v0.4)
+
+> Additive and opt-in. PBKDF2 stays the default; the plaintext and PBKDF2 paths
+> are unchanged, so update-1/update-2 still hold. Full design:
+> [`09-implementation-plan-argon2.md`](09-implementation-plan-argon2.md).
+
+### U3.1 Accepted decision and source
+
+| Field | Value |
+|-------|-------|
+| Decision | Add **Argon2id** (memory-hard) as an *opt-in* KDF over PBKDF2, via the versioned kdf-id field designed in v0.3 |
+| Source | **Explicit user decision**, 2026-07-07 ("harden encryption"); **D2 (CSP relaxation) accepted** via AskUserQuestion |
+| Driver | Stronger offline-cracking resistance than PBKDF2 for a captured transfer |
+| Reversibility | High — isolated in `core/crypto.ts` behind a lazy import; kdf-id is versioned; PBKDF2 default untouched |
+
+### U3.2 Changes (patch the base design)
+
+- **§4.1 envelope (protocol):** kdf-id `argon2id` with a `{ m, t, p }` cost map at
+  key 2; unknown kdf fails closed; AAD binds the id + params.
+- **§7 tech stack:** add `hash-wasm` (Argon2id) — wasm **base64-embedded** in its
+  JS, so the single-file sender stays a single file; **lazily imported** so the
+  default/PBKDF2/plaintext paths carry no extra weight.
+- **§17 security — SG-3/SG-4′ amended:** `'wasm-unsafe-eval'` added to `script-src`
+  on both pages to instantiate the KDF wasm. It is **narrower than `'unsafe-eval'`**
+  (no JS eval); **egress is unchanged** (`connect-src 'none'`/`'self'`). Trade-off
+  analysis: docs/09 §4.3.
+- **§23 experience:** sender gains an opt-in "Stronger key derivation (Argon2id)"
+  checkbox (default off) + an honest passphrase-strength hint. Receiver decrypts
+  either KDF with no UI change.
+
+### U3.3 ADR changes
+
+**ADR-0010 (v0.3 encryption): AMENDED** — the KDF is now pluggable via the
+versioned kdf-id; PBKDF2 remains the default.
+
+**ADR-0011 — Argon2id opt-in KDF (new).** *Status:* accepted (user-confirmed
+2026-07-07); implemented v0.4. *Decision:* Argon2id via `hash-wasm`, opt-in;
+`'wasm-unsafe-eval'` added to CSP. *Why:* memory-hard crack resistance without a
+separate `.wasm` (base64-embedded) or losing the single-file sender; the CSP cost
+is accepted because the app's XSS surface (static, same-origin, no-egress) is
+minimal. *Consequences:* wasm allowed in `script-src`; larger single-file sender
+(~30 KB). *Alternatives rejected:* keep strict CSP + only raise PBKDF2 iterations
+(weaker); argon2-browser (separate `.wasm`). *Reversibility:* high.
+
+### U3.4 Security review (DEC-2 re-run — wire format + CSP changed)
+
+| Check | Result |
+|-------|--------|
+| Unknown kdf fails closed | ✔ `MalformedMessageError`, never mis-accepts (tested) |
+| AAD binds argon params | ✔ tamper `m` → tag fails (tested) |
+| wasm under the built CSP | ✔ instantiates with `'wasm-unsafe-eval'`; **egress still forbidden** (browser-verified) |
+| No external `.wasm` | ✔ neither `dist/` nor `dist-sender/` emits one (base64-embedded) |
+| Passphrase handling | ✔ still never persisted/logged/in-QR; strength hint is client-side only |
+
+### U3.5 Verdict
+
+**Architecture Update Required? — Yes, applied by this addendum (update-3).** Read
+the base design as patched by §5 (update-1), §U2.3 (update-2), and §U3.2
+(update-3). Fold all three into a canonical document at the next `materialize`.

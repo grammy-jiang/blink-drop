@@ -3,6 +3,35 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.4.0 — 2026-07-07
+
+Opt-in **Argon2id** key derivation. Additive — the default (PBKDF2) and plaintext
+paths are unchanged; v0.3 and v0.4 interoperate.
+
+### Added
+
+- **Argon2id KDF (opt-in).** A "Stronger key derivation (Argon2id)" checkbox on
+  the sender derives the key with the **memory-hard Argon2id** KDF (via
+  `hash-wasm`) instead of PBKDF2 — far costlier to brute-force offline. The
+  receiver auto-detects and decrypts either KDF. PBKDF2 stays the default.
+- **Passphrase-strength hint** on the sender — a rough, honest indicator
+  (weak / ok / strong), explicitly not a guarantee.
+
+### Security
+
+- The wasm KDF needs `'wasm-unsafe-eval'` in `script-src` (added to both pages).
+  It is narrower than `'unsafe-eval'`, and **egress stays forbidden**
+  (`connect-src 'none'`/`'self'`) — verified in-browser. DEC-2 review re-run
+  (architecture update-3).
+- The envelope's kdf-id is versioned; an **unknown KDF fails closed**. AAD binds
+  the KDF params (no downgrade). `hash-wasm`'s wasm is base64-embedded, so the
+  offline single-file sender remains a single file (no external `.wasm`).
+
+### Notes
+
+- No wire break: plaintext and PBKDF2 envelopes are unchanged. Design:
+  `docs/09-implementation-plan-argon2.md`.
+
 ## 0.3.0 — 2026-07-07
 
 Opt-in passphrase encryption. Plaintext transfers are byte-for-byte unchanged —
@@ -106,6 +135,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.4.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.1.0
