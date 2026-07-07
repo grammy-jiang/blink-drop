@@ -9,7 +9,7 @@
 // UI). This module is the only place that touches bc-ur.
 
 import { UR, URDecoder, UREncoder } from "@ngraveio/bc-ur";
-import { DEFAULT_MAX_FRAGMENT_LENGTH, UR_TYPE } from "./types";
+import { DEFAULT_MAX_FRAGMENT_LENGTH, MAX_SEQ_LEN, UR_TYPE } from "./types";
 
 function toBuffer(u: Uint8Array): Buffer {
   return Buffer.from(u.buffer, u.byteOffset, u.byteLength);
@@ -53,8 +53,17 @@ export function qrPartStream(
 export class Assembler {
   private readonly decoder = new URDecoder();
 
+  // The MUR sequence component: `ur:<type>/<seqNum>-<seqLen>/<bytewords>`.
+  // (A single-part UR has no sequence component and won't match.)
+  private static readonly SEQ = /^ur:[^/]+\/\d+-(\d+)\//i;
+
   // Returns true if the part was accepted (well-formed and for this session).
   receiveQr(qrPart: string): boolean {
+    // Reject an absurd declared part count BEFORE bc-ur does `new Array(seqLen)`
+    // on the first part — a single crafted frame otherwise OOMs the receiver
+    // (SG-2-class resource-exhaustion DoS).
+    const seq = Assembler.SEQ.exec(qrPart);
+    if (seq && Number(seq[1]) > MAX_SEQ_LEN) return false;
     return this.decoder.receivePart(qrPart.toLowerCase());
   }
 
