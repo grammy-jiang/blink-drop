@@ -1,5 +1,11 @@
 import "../polyfill.js";
-import { buildMessage, DEFAULT_MAX_FRAGMENT_LENGTH, qrPartStream, systematicQrParts } from "../core/index.js";
+import {
+  buildFilesMessage,
+  DEFAULT_MAX_FRAGMENT_LENGTH,
+  type FileInput,
+  qrPartStream,
+  systematicQrParts,
+} from "../core/index.js";
 import { FramePlayer } from "../player/loop.js";
 import { renderTextToCanvas } from "../qr/render.js";
 import { describeSize } from "./size.js";
@@ -88,21 +94,36 @@ passInput.addEventListener("input", () => {
   updateStrength();
 });
 
-// Shared by click-to-pick and drag-and-drop.
-async function processFile(file: File): Promise<void> {
+// Shared by click-to-pick and drag-and-drop. One file → the single-file envelope;
+// several → the multi-file envelope (buildFilesMessage). Optional passphrase.
+async function processFiles(files: File[]): Promise<void> {
+  if (files.length === 0) return;
   const passphrase = passInput.value || undefined;
   const kdf = passphrase && argonBox.checked ? "argon2id" : undefined;
   statusEl.textContent = passphrase ? (kdf ? "Encrypting (stronger)…" : "Encrypting…") : "Preparing…";
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  sizeWarnEl.textContent = describeSize(bytes.length).warn; // soft/hard ceiling — advisory, never blocks
-  const input = { bytes, name: file.name, mediaType: file.type || "application/octet-stream" };
 
-  const message = await buildMessage(input, { passphrase, kdf });
+  const inputs: FileInput[] = [];
+  let totalBytes = 0;
+  for (const file of files) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    totalBytes += bytes.length;
+    inputs.push({ bytes, name: file.name, mediaType: file.type || "application/octet-stream" });
+  }
+  sizeWarnEl.textContent = describeSize(totalBytes).warn; // combined-size ceiling — advisory, never blocks
+
+  let message: Uint8Array;
+  try {
+    message = await buildFilesMessage(inputs, { passphrase, kdf });
+  } catch (e) {
+    statusEl.textContent = `Couldn't prepare: ${(e as Error).message}`;
+    return;
+  }
   seqLen = systematicQrParts(message, DEFAULT_MAX_FRAGMENT_LENGTH).length;
   // Loop the systematic parts plus a redundancy set of fountain parts (blueprint L5/§7).
   const parts = qrPartStream(message, Math.ceil(seqLen * 1.5), DEFAULT_MAX_FRAGMENT_LENGTH);
 
-  planEl.dataset.base = `${input.name} · ${bytes.length} B · ${seqLen} frames`;
+  const label = inputs.length === 1 ? inputs[0]!.name : `${inputs.length} files`;
+  planEl.dataset.base = `${label} · ${totalBytes} B · ${seqLen} frames`;
   updateEta();
 
   player.load(parts);
@@ -111,8 +132,8 @@ async function processFile(file: File): Promise<void> {
 }
 
 fileInput.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  if (file) void processFile(file);
+  const files = fileInput.files ? [...fileInput.files] : [];
+  if (files.length) void processFiles(files);
 });
 
 // Drag-and-drop onto the zone runs the same path (blueprint §9 In-list).
@@ -124,8 +145,8 @@ dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover
 dropzone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropzone.classList.remove("dragover");
-  const file = e.dataTransfer?.files?.[0];
-  if (file) void processFile(file);
+  const files = e.dataTransfer?.files ? [...e.dataTransfer.files] : [];
+  if (files.length) void processFiles(files);
 });
 
 // Render a static QR of the receiver page URL so the phone can open the PWA by

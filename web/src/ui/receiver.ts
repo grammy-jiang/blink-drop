@@ -1,9 +1,10 @@
 import "../polyfill.js";
 import {
   Assembler,
+  type DecodedFile,
   DigestMismatchError,
   isEncryptedMessage,
-  openMessage,
+  openFilesMessage,
   WrongPassphraseError,
 } from "../core/index.js";
 import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
@@ -13,7 +14,7 @@ import {
   type ResumePartial,
   save as saveResume,
 } from "../receiver/resume.js";
-import { shareOrDownload } from "../receiver/share.js";
+import { shareOrDownloadMany } from "../receiver/share.js";
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
 const params = new URLSearchParams(location.search);
@@ -231,15 +232,9 @@ function main(): void {
   async function verifyAndComplete(message: Uint8Array, passphrase: string | undefined): Promise<void> {
     app.innerHTML = `<div class="screen"><div class="hint">Verifying…</div></div>`;
     try {
-      const decoded = await openMessage(message, { passphrase });
+      const files = await openFilesMessage(message, { passphrase });
       void clearResume(); // verified → drop the persisted partial
-      renderComplete(
-        decoded.header.name,
-        decoded.bytes.length,
-        decoded.header.mediaType,
-        decoded.bytes,
-        passphrase !== undefined,
-      );
+      renderComplete(files, passphrase !== undefined);
     } catch (e) {
       // A wrong passphrase is NOT a corruption failure — re-prompt, keep the file
       // withheld, do not offer "accept anyway".
@@ -284,7 +279,9 @@ function main(): void {
     input.focus();
   }
 
-  function renderComplete(name: string, size: number, mediaType: string, bytes: Uint8Array, encrypted: boolean): void {
+  function renderComplete(files: DecodedFile[], encrypted: boolean): void {
+    const single = files.length === 1;
+    const total = files.reduce((n, f) => n + f.bytes.length, 0);
     app.innerHTML = `
       <div class="screen">
         <div class="card">
@@ -294,28 +291,42 @@ function main(): void {
           </div>
           <div class="fname" id="fname"></div>
           <div class="meta" id="meta"></div>
+          ${single ? "" : `<ul class="filelist" id="filelist"></ul>`}
           ${
             encrypted
-              ? `<div class="meta enc-note">Content and file name were hidden from anyone without the passphrase. The size, and that a transfer happened, were not.</div>`
+              ? `<div class="meta enc-note">Content and file name${single ? "" : "s"} were hidden from anyone without the passphrase. The size, and that a transfer happened, were not.</div>`
               : ""
           }
           <div class="actions">
-            <button type="button" id="share" class="primary">Share</button>
-            <button type="button" id="save">Save</button>
+            <button type="button" id="share" class="primary">${single ? "Share" : "Share all"}</button>
+            <button type="button" id="save">${single ? "Save" : "Save all"}</button>
             <button type="button" id="discard" class="ghost">Discard</button>
           </div>
           <div class="shareresult" id="shareresult"></div>
         </div>
       </div>`;
-    (app.querySelector("#fname") as HTMLElement).textContent = name;
-    (app.querySelector("#meta") as HTMLElement).textContent = `${formatBytes(size)} · ${mediaType || "file"}`;
+    // Filenames go in via textContent / DOM nodes — never innerHTML (a hostile
+    // sender controls the names, so this keeps the no-XSS invariant).
+    (app.querySelector("#fname") as HTMLElement).textContent = single ? files[0]!.header.name : `${files.length} files`;
+    (app.querySelector("#meta") as HTMLElement).textContent = single
+      ? `${formatBytes(files[0]!.bytes.length)} · ${files[0]!.header.mediaType || "file"}`
+      : `${files.length} files · ${formatBytes(total)}`;
+    if (!single) {
+      const list = app.querySelector("#filelist") as HTMLElement;
+      for (const f of files) {
+        const li = document.createElement("li");
+        li.textContent = `${f.header.name} · ${formatBytes(f.bytes.length)}`;
+        list.appendChild(li);
+      }
+    }
+    const items = files.map((f) => ({ bytes: f.bytes, name: f.header.name, mediaType: f.header.mediaType }));
     const shareResult = app.querySelector("#shareresult") as HTMLElement;
     (app.querySelector("#share") as HTMLButtonElement).addEventListener("click", async () => {
-      const r = await shareOrDownload(bytes, name, mediaType);
+      const r = await shareOrDownloadMany(items);
       shareResult.textContent = r === "cancelled" ? "" : r === "shared" ? "Shared." : "Saved to downloads.";
     });
     (app.querySelector("#save") as HTMLButtonElement).addEventListener("click", async () => {
-      await shareOrDownload(bytes, name, mediaType);
+      await shareOrDownloadMany(items);
       shareResult.textContent = "Saved.";
     });
     (app.querySelector("#discard") as HTMLButtonElement).addEventListener("click", renderReady);
