@@ -10,54 +10,114 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='17' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='9' y='17' width='6' height='6' fill='%23f9fafb'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%232563eb'/%3E%3C/svg%3E" />
     <title>Blink-Drop — Sender</title>
     <style>
-      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
-      h1 { font-size: 1.4rem; }
-      #controls { margin: 1rem 0; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-      #plan { margin: 0.5rem 0; color: #333; }
-      #status { margin: 0.5rem 0; color: #555; font-variant-numeric: tabular-nums; }
-      canvas { image-rendering: pixelated; border: 1px solid #ddd; max-width: 100%; }
-      button { padding: 0.3rem 0.8rem; }
-      .note { color: #777; font-size: 0.9rem; }
-      #receiverqrbox { float: right; text-align: center; margin: 0 0 1rem 1rem; max-width: 170px; }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 2rem 1rem;
+        max-width: 640px;
+        margin-inline: auto;
+        color: #111827;
+      }
+      h1 { font-size: 1.5rem; text-align: center; margin: 0 0 0.15rem; }
+      .tagline { text-align: center; color: #6b7280; margin: 0 0 1.5rem; font-size: 0.95rem; }
+
+      /* Drop zone is the label for the (hidden) file input: click anywhere or drop. */
+      .dropzone {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 2.6rem 1rem;
+        color: #6b7280;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s, color 0.15s;
+      }
+      .dropzone:hover { border-color: #94a3b8; }
+      .dropzone.dragover { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+
+      .disclosures { display: flex; gap: 1.4rem; justify-content: center; flex-wrap: wrap; margin: 1rem 0 0; }
+      details { border-radius: 8px; }
+      summary { cursor: pointer; color: #2563eb; font-size: 0.9rem; list-style: none; user-select: none; }
+      summary::-webkit-details-marker { display: none; }
+      .panel { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
+      .panel input[type="password"] {
+        padding: 0.45rem 0.65rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 1rem;
+        width: min(80vw, 300px);
+      }
+      .check { font-size: 0.85rem; color: #374151; }
+      .hint { color: #6b7280; font-size: 0.8rem; min-height: 1em; max-width: 34ch; text-align: center; }
+      .warn { color: #b45309; text-align: center; font-size: 0.85rem; min-height: 1em; margin: 0.5rem 0 0; }
+
+      #stage { margin-top: 1.6rem; display: flex; flex-direction: column; align-items: center; gap: 0.55rem; }
+      canvas#qr { image-rendering: pixelated; border: 1px solid #e5e7eb; max-width: 100%; }
+      .plan { font-variant-numeric: tabular-nums; color: #374151; font-size: 0.9rem; }
+      .status { color: #6b7280; font-size: 0.85rem; min-height: 1em; }
+      .cue { color: #6b7280; font-size: 0.85rem; }
+      .playbar { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+      .playbar label { font-size: 0.85rem; color: #374151; display: flex; align-items: center; gap: 0.3rem; }
+      button {
+        padding: 0.45rem 1rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
       #receiverqr { width: 150px; height: 150px; }
-      #receiverqrcap { color: #777; font-size: 0.8rem; margin-top: 0.3rem; }
-      .passrow { display: block; margin: 0.6rem 0 0.2rem; }
-      .passrow input { margin-left: 0.4rem; padding: 0.25rem 0.4rem; }
-      #passnote { min-height: 1.2em; }
-      .dropzone { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 1rem; margin: 0.4rem 0; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
-      .dropzone.dragover { border-color: #2563eb; background: #eff6ff; }
-      .dz-hint { color: #777; font-size: 0.9rem; }
-      #sizewarn { color: #b45309; min-height: 1.2em; margin: 0.3rem 0; }
+      #receiverqrcap { font-size: 0.8rem; color: #6b7280; margin-top: 0.3rem; }
     </style>
   </head>
   <body>
     <main>
-    <h1>Blink-Drop — Sender</h1>
-    <div id="receiverqrbox" hidden>
-      <canvas id="receiverqr" width="10" height="10"></canvas>
-      <div id="receiverqrcap"></div>
-    </div>
-    <p class="note">Pick or drop a file. It is processed on this machine and never uploaded. Point the phone receiver at the animation; keep it playing until the phone shows Verified.</p>
-    <p class="note"><strong>Anyone who can see this screen can capture the animation.</strong> Add a passphrase below to encrypt sensitive files.</p>
-    <label class="passrow">Passphrase (optional)
-      <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="leave blank = unencrypted" />
-    </label>
-    <div id="strength" class="note"></div>
-    <label class="passrow"><input type="checkbox" id="argon" /> Stronger key derivation (Argon2id) — slightly slower, loads a small module the first time</label>
-    <div id="passnote" class="note"></div>
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="file" multiple />
-      <span class="dz-hint">or drop file(s) here</span>
-    </div>
-    <div id="sizewarn"></div>
-    <div id="plan"></div>
-    <div id="controls">
-      <label>Rate <input type="range" id="rate" min="2" max="15" value="8" /> <span id="rateVal">8</span> fps</label>
-      <label>Size <input type="range" id="scale" min="2" max="12" value="6" /> <span id="scaleVal">6</span> px/module</label>
-      <button type="button" id="stop">Stop</button>
-    </div>
-    <canvas id="qr" width="10" height="10"></canvas>
-    <div id="status"></div>
+      <h1>Blink-Drop</h1>
+      <p class="tagline">Offline. Nothing uploaded.</p>
+
+      <label class="dropzone" id="dropzone" for="file">Drop a file, or click</label>
+      <input type="file" id="file" multiple hidden />
+
+      <div class="disclosures">
+        <details id="encbox">
+          <summary>🔒 Add passphrase</summary>
+          <div class="panel">
+            <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="passphrase" />
+            <div id="strength" class="hint"></div>
+            <label class="check"><input type="checkbox" id="argon" /> Stronger key (Argon2id)</label>
+            <div id="passnote" class="hint"></div>
+          </div>
+        </details>
+        <details id="phonebox">
+          <summary>📱 Phone link</summary>
+          <div class="panel">
+            <canvas id="receiverqr" width="10" height="10"></canvas>
+            <div id="receiverqrcap"></div>
+          </div>
+        </details>
+      </div>
+
+      <div id="sizewarn" class="warn"></div>
+      <div id="caution" class="warn"></div>
+
+      <div id="stage" hidden>
+        <canvas id="qr" width="10" height="10"></canvas>
+        <div id="plan" class="plan"></div>
+        <div class="cue">Keep playing until the phone shows Verified.</div>
+        <div class="playbar">
+          <button type="button" id="stop">Stop</button>
+          <details id="adjustbox">
+            <summary>Adjust</summary>
+            <div class="panel">
+              <label>Speed <input type="range" id="rate" min="2" max="15" value="8" /> <span id="rateVal">8</span></label>
+              <label>Size <input type="range" id="scale" min="2" max="12" value="6" /> <span id="scaleVal">6</span></label>
+            </div>
+          </details>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
     </main>
     <script type="module" src="/src/ui/sender.ts"></script>
   </body>
