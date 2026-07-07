@@ -7,6 +7,12 @@ import {
   WrongPassphraseError,
 } from "../core/index.js";
 import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
+import {
+  clear as clearResume,
+  load as loadResume,
+  type ResumePartial,
+  save as saveResume,
+} from "../receiver/resume.js";
 import { shareOrDownload } from "../receiver/share.js";
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
@@ -23,6 +29,10 @@ const STALL_TIPS = [
   "Ask the sender to slow down or make the code bigger.",
 ];
 
+// Only persist transfers big enough that resume helps (docs/11 D6). Small ones
+// finish in seconds, so they never touch disk.
+const RESUME_MIN_FRAMES = 40;
+
 function main(): void {
   const app = document.getElementById("app") as HTMLElement;
 
@@ -30,6 +40,8 @@ function main(): void {
   let assembler = new Assembler();
   let lastPercent = 0;
   let lastProgressAt = 0;
+  let receivedParts = new Set<string>();
+  let lastSaveAt = 0;
 
   const stopCamera = (): void => {
     camera?.stop();
@@ -54,6 +66,28 @@ function main(): void {
         (app.querySelector("#install") as HTMLElement | null)?.remove();
       });
     }
+  }
+
+  // Offered on boot when an interrupted transfer was persisted (docs/11). Resume
+  // replays the saved parts; Start fresh clears them.
+  function renderResumeOffer(partial: ResumePartial): void {
+    stopCamera();
+    app.innerHTML = `
+      <div class="screen">
+        <div class="hint">You have an interrupted transfer — <b>${partial.percent}%</b> collected. Point at the same animation to continue, or start over.</div>
+        <div class="actions">
+          <button type="button" id="resume" class="primary">Resume (${partial.percent}%)</button>
+          <button type="button" id="fresh" class="ghost">Start fresh</button>
+        </div>
+      </div>`;
+    (app.querySelector("#resume") as HTMLButtonElement).addEventListener(
+      "click",
+      () => void startScanning(partial.parts),
+    );
+    (app.querySelector("#fresh") as HTMLButtonElement).addEventListener("click", () => {
+      void clearResume();
+      renderReady();
+    });
   }
 
   // On iOS the camera is most reliable from an installed (standalone) PWA. Show a
@@ -134,25 +168,52 @@ function main(): void {
     }
   }
 
-  async function startScanning(): Promise<void> {
+  async function startScanning(seedParts?: string[]): Promise<void> {
     if (!isSecureContextOk()) {
       renderInsecure();
       return;
     }
     assembler = new Assembler();
+    receivedParts = new Set();
+    lastSaveAt = 0;
     lastPercent = 0;
     lastProgressAt = Date.now();
+    // Resume: replay the persisted parts into the fresh assembler before scanning.
+    if (seedParts) {
+      for (const p of seedParts) if (assembler.receiveQr(p)) receivedParts.add(p);
+    }
     const mount = renderCollecting();
+    updateProgress();
+    if (assembler.isSuccess) {
+      void finish();
+      return;
+    }
     try {
       camera = await startCamera(mount, (qr) => {
-        if (qr !== null) assembler.receiveQr(qr);
+        if (qr !== null && assembler.receiveQr(qr)) receivedParts.add(qr);
         updateProgress();
+        persistMaybe();
         if (assembler.isSuccess) void finish();
       });
     } catch (e) {
       if (e instanceof CameraError && e.name === "InsecureContext") renderInsecure();
       else renderDenied(e instanceof CameraError ? cameraMessage(e) : String(e));
     }
+  }
+
+  // Persist the partial (encrypted at rest, docs/11) so an interrupted scan can
+  // resume. Only for large transfers (D6), debounced to ~1s.
+  function persistMaybe(): void {
+    if (assembler.isSuccess || assembler.expectedPartCount <= RESUME_MIN_FRAMES) return;
+    const now = Date.now();
+    if (now - lastSaveAt < 1000) return;
+    lastSaveAt = now;
+    void saveResume({
+      parts: [...receivedParts],
+      percent: assembler.percentComplete,
+      frames: assembler.expectedPartCount,
+      savedAt: now,
+    });
   }
 
   async function finish(): Promise<void> {
@@ -171,6 +232,7 @@ function main(): void {
     app.innerHTML = `<div class="screen"><div class="hint">Verifying…</div></div>`;
     try {
       const decoded = await openMessage(message, { passphrase });
+      void clearResume(); // verified → drop the persisted partial
       renderComplete(
         decoded.header.name,
         decoded.bytes.length,
@@ -274,9 +336,18 @@ function main(): void {
     (app.querySelector("#restart") as HTMLButtonElement).addEventListener("click", renderReady);
   }
 
-  // Boot: secure-context gate, then Ready.
-  if (!isSecureContextOk()) renderInsecure();
-  else renderReady();
+  // Boot: secure-context gate, then offer resume (if a partial exists) or Ready.
+  if (!isSecureContextOk()) {
+    renderInsecure();
+  } else {
+    void bootReady();
+  }
+
+  async function bootReady(): Promise<void> {
+    const partial = await loadResume().catch(() => null);
+    if (partial && partial.parts.length > 0) renderResumeOffer(partial);
+    else renderReady();
+  }
 }
 
 function cameraMessage(e: CameraError): string {
