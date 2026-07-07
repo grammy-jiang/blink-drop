@@ -9,6 +9,7 @@ import {
 } from "../core/index.js";
 import { zipFiles } from "../receiver/bundle.js";
 import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
+import { safeName } from "../receiver/filename.js";
 import {
   clear as clearResume,
   load as loadResume,
@@ -308,7 +309,9 @@ function main(): void {
       </div>`;
     // Filenames go in via textContent / DOM nodes — never innerHTML (a hostile
     // sender controls the names, so this keeps the no-XSS invariant).
-    (app.querySelector("#fname") as HTMLElement).textContent = single ? files[0]!.header.name : `${files.length} files`;
+    (app.querySelector("#fname") as HTMLElement).textContent = single
+      ? safeName(files[0]!.header.name)
+      : `${files.length} files`;
     (app.querySelector("#meta") as HTMLElement).textContent = single
       ? `${formatBytes(files[0]!.bytes.length)} · ${files[0]!.header.mediaType || "file"}`
       : `${files.length} files · ${formatBytes(total)}`;
@@ -316,11 +319,11 @@ function main(): void {
       const list = app.querySelector("#filelist") as HTMLElement;
       for (const f of files) {
         const li = document.createElement("li");
-        li.textContent = `${f.header.name} · ${formatBytes(f.bytes.length)}`;
+        li.textContent = `${safeName(f.header.name)} · ${formatBytes(f.bytes.length)}`;
         list.appendChild(li);
       }
     }
-    const items = files.map((f) => ({ bytes: f.bytes, name: f.header.name, mediaType: f.header.mediaType }));
+    const items = files.map((f) => ({ bytes: f.bytes, name: safeName(f.header.name), mediaType: f.header.mediaType }));
     const shareResult = app.querySelector("#shareresult") as HTMLElement;
     (app.querySelector("#share") as HTMLButtonElement).addEventListener("click", async () => {
       const r = await shareOrDownloadMany(items);

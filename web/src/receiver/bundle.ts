@@ -3,6 +3,7 @@
 // Share / sequential downloads are unreliable. fflate is pure JS (no wasm/blob)
 // and receiver-only, so it never touches the single-file offline sender.
 import { zipSync } from "fflate";
+import { safeName } from "./filename.js";
 
 // Duplicate filenames are de-duplicated (`name (2).ext`) so no file is dropped —
 // a zip can't hold two entries with the same key.
@@ -10,7 +11,9 @@ export function zipFiles(files: { name: string; bytes: Uint8Array }[]): Uint8Arr
   const entries: Record<string, Uint8Array> = {};
   const used = new Set<string>();
   for (const f of files) {
-    let name = f.name || "file";
+    // Sanitize BEFORE dedupe: the name becomes a zip entry key, so an untrusted
+    // `../../evil` must be reduced to a basename first (no zip-slip).
+    let name = safeName(f.name);
     if (used.has(name)) {
       const dot = name.lastIndexOf(".");
       const base = dot > 0 ? name.slice(0, dot) : name;

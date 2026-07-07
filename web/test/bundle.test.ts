@@ -20,6 +20,18 @@ describe("zipFiles — multi-file .zip bundle (docs/14)", () => {
     expect(bytesEqual(back["b.bin"]!, files[1]!.bytes)).toBe(true);
   });
 
+  it("sanitizes traversal filenames into safe basenames (no zip-slip)", () => {
+    const zip = zipFiles([
+      { name: "../../../../etc/evil.sh", bytes: enc.encode("x") },
+      { name: "a\\b\\win.dll", bytes: enc.encode("y") },
+    ]);
+    const names = Object.keys(unzipSync(zip));
+    expect(names).toContain("evil.sh");
+    expect(names).toContain("win.dll");
+    // no entry key retains a path separator
+    expect(names.every((n) => !n.includes("/") && !n.includes("\\"))).toBe(true);
+  });
+
   it("de-duplicates colliding filenames so none is dropped", () => {
     const zip = zipFiles([
       { name: "dup.txt", bytes: enc.encode("first") },

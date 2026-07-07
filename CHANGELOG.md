@@ -3,6 +3,40 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.7.3 — 2026-07-07
+
+Security hardening (external-review response).
+
+### Fixed
+
+- **Untrusted-filename sanitization.** Reconstructed file *bytes* were always
+  SHA-256-verified, but the sender-controlled *filename* was used verbatim as a
+  download name and **zip entry key**. A crafted name (`../../evil`) is now
+  reduced to a safe basename (path components + control chars stripped;
+  length-capped) before it reaches the OS share sheet, a download, or a `.zip` —
+  closing a low-severity **zip-slip** vector. New `safeName()` helper (`receiver/filename.ts`).
+- **Malformed-QR robustness.** `Assembler.receiveQr` could let a `bc-ur`
+  exception (`InvalidSchemeError` / internal assertion) escape on a garbled or
+  hostile QR frame instead of dropping it — an uncaught throw in the camera scan
+  loop. It now returns `false` on any unparseable part. **Found by a new decoder
+  fuzz test.**
+
+### Added
+
+- Sender warning: **"Anyone who can see this screen can capture the animation —
+  add a passphrase to encrypt sensitive files."** (honest visual-eavesdropping note).
+- Decoder **fuzz test** (random bytes / malformed CBOR / malformed UR parts)
+  asserting the parser only ever throws typed errors, never an unexpected crash.
+
+### Notes
+
+- Response to an external 12-point security checklist: **10/12 items were already
+  handled or are intentional design boundaries** (per-file SHA-256, no-egress CSP,
+  KDF/decompression/seq bounds, no auto-open, no payload logging; replay/sender-
+  signing are out of scope by design; native-iOS controls are N/A to a PWA).
+  Evaluation + rationale: `docs/16-security-review-response.md`. **No wire,
+  protocol, or encryption change.**
+
 ## 0.7.2 — 2026-07-07
 
 Accessibility + SEO quality pass.
@@ -258,6 +292,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.7.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.3
 [0.7.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.2
 [0.7.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.1
 [0.7.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.0

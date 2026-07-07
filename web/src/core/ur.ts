@@ -64,7 +64,15 @@ export class Assembler {
     // (SG-2-class resource-exhaustion DoS).
     const seq = Assembler.SEQ.exec(qrPart);
     if (seq && Number(seq[1]) > MAX_SEQ_LEN) return false;
-    return this.decoder.receivePart(qrPart.toLowerCase());
+    try {
+      return this.decoder.receivePart(qrPart.toLowerCase());
+    } catch {
+      // bc-ur throws (InvalidSchemeError / internal assertion) on a malformed
+      // part rather than returning false. A garbled or hostile QR frame must be
+      // DROPPED, not crash the scan loop — the camera feeds arbitrary decoded
+      // QR strings here. (Regression: web/test/fuzz.test.ts.)
+      return false;
+    }
   }
 
   get isComplete(): boolean {
