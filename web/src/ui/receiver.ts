@@ -55,6 +55,7 @@ function main(): void {
     stopCamera();
     app.innerHTML = `
       <div class="screen">
+        <h1 class="brand">Blink-Drop</h1>
         <div class="hint">Point your phone at the animation on the other screen.</div>
         <button type="button" id="start" class="primary">Start scanning</button>
         ${installHintHtml()}
