@@ -4,34 +4,48 @@
 
 export type { CborMap, CborValue } from "./cbor";
 export { CborError, decode as cborDecode, encode as cborEncode } from "./cbor";
+export { aesGcmDecrypt, aesGcmEncrypt, deriveKey, randomBytes, WrongPassphraseError } from "./crypto";
 export { bytesEqual, sha256 } from "./digest";
-export { buildMessage, DigestMismatchError, MalformedMessageError, openMessage, parseMessage } from "./envelope";
+export {
+  type BuildOptions,
+  buildMessage,
+  DigestMismatchError,
+  isEncryptedMessage,
+  MalformedMessageError,
+  type OpenOptions,
+  openMessage,
+  PassphraseRequiredError,
+  parseMessage,
+} from "./envelope";
 export { DecompressionOverflowError, gunzip, gzip } from "./gzip";
 export * from "./types";
 export { Assembler, makeEncoder, qrPartStream, systematicQrParts } from "./ur";
 
-import { buildMessage, openMessage } from "./envelope";
+import { type BuildOptions, buildMessage, type OpenOptions, openMessage } from "./envelope";
 import { DEFAULT_MAX_FRAGMENT_LENGTH, type DecodedFile, type FileInput } from "./types";
 import { Assembler, systematicQrParts } from "./ur";
 
 // Sender: file -> the finite set of QR part strings (systematic parts). The
 // player loops these and interleaves fountain parts (qrPartStream) as needed.
+// Pass a passphrase in `opts` to produce an encrypted stream (docs/07).
 export async function encodeFileToQrParts(
   input: FileInput,
   maxFragmentLength: number = DEFAULT_MAX_FRAGMENT_LENGTH,
+  opts: BuildOptions = {},
 ): Promise<string[]> {
-  const message = await buildMessage(input);
+  const message = await buildMessage(input, opts);
   return systematicQrParts(message, maxFragmentLength);
 }
 
 // Receiver: feed captured QR strings until reconstruction, then verify and open.
-// Throws on incomplete input, digest mismatch (SG-1), or a decompression bomb (SG-2).
-export async function decodeQrPartsToFile(qrParts: Iterable<string>): Promise<DecodedFile> {
+// Throws on incomplete input, digest mismatch (SG-1), a decompression bomb
+// (SG-2), or — for an encrypted stream — a missing/wrong passphrase.
+export async function decodeQrPartsToFile(qrParts: Iterable<string>, opts: OpenOptions = {}): Promise<DecodedFile> {
   const assembler = new Assembler();
   for (const part of qrParts) {
     assembler.receiveQr(part);
     if (assembler.isComplete) break;
   }
   if (!assembler.isSuccess) throw new Error("QR parts did not reconstruct a complete message");
-  return openMessage(assembler.message());
+  return openMessage(assembler.message(), opts);
 }
