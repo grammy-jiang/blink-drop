@@ -44,6 +44,14 @@ export const PBKDF2_ITERATIONS = 600_000;
 export const ArgonKey = { m: 1, t: 2, p: 3 } as const; // memory (KiB), time, parallelism
 export const ARGON2_DEFAULTS = { m: 19456, t: 2, p: 1 } as const; // OWASP: 19 MiB, t=2, p=1
 
+// Upper bounds on attacker-controlled cost/size fields lifted from a hostile
+// envelope or QR part, mirroring the decompression-bomb ceiling (SG-2). Without
+// these, a crafted message could force unbounded key-derivation work (KDF bomb)
+// or a giant fountain-decoder allocation (seqLength bomb) → receiver DoS.
+export const MAX_PBKDF2_ITERATIONS = 10_000_000; // ~16× the default; bounded, still recoverable
+export const MAX_ARGON2 = { m: 262_144, t: 16, p: 4 } as const; // 256 MiB / t=16 / p=4 — generous but bounded
+export const MAX_SEQ_LEN = 262_144; // UR part-count cap (≫ any real transfer; blocks new Array(seqLength) bombs)
+
 export const SALT_BYTES = 16; // 128-bit KDF salt
 export const GCM_NONCE_BYTES = 12; // 96-bit AES-GCM nonce
 export const KDF_KEY_BYTES = 32; // derived AES-256 key length
