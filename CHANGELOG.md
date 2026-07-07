@@ -3,6 +3,26 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.9.0 — 2026-07-08
+
+Unified sender + receiver design (consistent style + dark mode on the sender).
+
+### Changed
+
+- **The sender now shares the receiver's design language** so the two pages read
+  as one app: a top-left `Blink-Drop` header, vertically-centered content (over-
+  flow-safe when the animation grows), the same button/token styles, and **dark
+  mode** (`prefers-color-scheme`). Previously the sender was a centered light-only
+  hero while the receiver had a header + dark mode. Verified on desktop **and**
+  phone, in **light and dark**.
+
+### Notes
+
+- CSS/markup only — no wire, protocol, or logic change; every sender control is
+  unchanged (verified in-browser: drop→play, encryption panel, multi-file,
+  Adjust sliders). The sender's `<h1>` became a `<header>` banner; still exactly
+  one `<main>` landmark (a11y intact).
+
 ## 0.8.3 — 2026-07-08
 
 Wording: reflect multi-file support on the sender.
@@ -357,6 +377,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.9.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.0
 [0.8.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.3
 [0.8.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.2
 [0.8.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.1
