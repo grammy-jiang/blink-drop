@@ -37,9 +37,13 @@
       .dropzone:hover { border-color: #94a3b8; }
       .dropzone.dragover { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
 
-      .disclosures { display: flex; gap: 1.4rem; justify-content: center; flex-wrap: wrap; margin: 1rem 0 0; }
-      details { border-radius: 8px; }
-      summary { cursor: pointer; color: #2563eb; font-size: 0.9rem; list-style: none; user-select: none; }
+      /* Stack the toggles and center each: a native <details> opens its panel
+         directly under its own <summary>, so a side-by-side row would push the
+         second panel off to one side. Column + centered keeps both panels
+         centered on the page. */
+      .disclosures { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; margin: 1rem 0 0; }
+      details { border-radius: 8px; text-align: center; }
+      summary { cursor: pointer; color: #2563eb; font-size: 0.9rem; list-style: none; user-select: none; text-align: center; }
       summary::-webkit-details-marker { display: none; }
       .panel { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
       .panel input[type="password"] {

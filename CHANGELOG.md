@@ -3,6 +3,20 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.8.2 — 2026-07-08
+
+Fix off-center disclosure panels on the sender.
+
+### Fixed
+
+- **Sender disclosure panels weren't centered.** The `🔒 Add passphrase` and
+  `📱 Phone link` toggles sat in a **side-by-side** row, so each native
+  `<details>` opened its panel directly under its own summary — the passphrase
+  panel landed roughly centered but the Phone-link QR opened **off to the right**
+  (most obvious at phone width). Stacked the two toggles vertically and centered
+  them, so both panels now center on the page. Reported by the user; verified at
+  390 px (both panels center on the viewport midpoint).
+
 ## 0.8.1 — 2026-07-08
 
 Fix a regression in the v0.8.0 simplified sender.
@@ -332,6 +346,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.8.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.2
 [0.8.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.1
 [0.8.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.0
 [0.7.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.3
