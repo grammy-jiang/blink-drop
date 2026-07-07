@@ -31,14 +31,22 @@ export const EncKey = {
 
 export const ENVELOPE_VERSION_ENCRYPTED = 1;
 export const KDF_PBKDF2_SHA256 = "pbkdf2-sha256";
+export const KDF_ARGON2ID = "argon2id"; // opt-in memory-hard KDF (v0.4)
 export const CIPHER_AES_256_GCM = "aes-256-gcm";
 
 // PBKDF2 work factor (OWASP-2023 floor for PBKDF2-SHA256). Runs once per
 // transfer per side; well under a second on a phone. Tests/vectors override it
 // with a small count for speed — production uses this default.
 export const PBKDF2_ITERATIONS = 600_000;
+
+// Argon2id cost params. When kdf = argon2id, EncKey.iter (key 2) holds a sub-map
+// { m, t, p } instead of a plain iteration count.
+export const ArgonKey = { m: 1, t: 2, p: 3 } as const; // memory (KiB), time, parallelism
+export const ARGON2_DEFAULTS = { m: 19456, t: 2, p: 1 } as const; // OWASP: 19 MiB, t=2, p=1
+
 export const SALT_BYTES = 16; // 128-bit KDF salt
 export const GCM_NONCE_BYTES = 12; // 96-bit AES-GCM nonce
+export const KDF_KEY_BYTES = 32; // derived AES-256 key length
 
 export const Compression = {
   none: 0,

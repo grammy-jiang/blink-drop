@@ -4,7 +4,15 @@
 
 export type { CborMap, CborValue } from "./cbor";
 export { CborError, decode as cborDecode, encode as cborEncode } from "./cbor";
-export { aesGcmDecrypt, aesGcmEncrypt, deriveKey, randomBytes, WrongPassphraseError } from "./crypto";
+export {
+  type Argon2Params,
+  aesGcmDecrypt,
+  aesGcmEncrypt,
+  deriveKey,
+  deriveKeyArgon2,
+  randomBytes,
+  WrongPassphraseError,
+} from "./crypto";
 export { bytesEqual, sha256 } from "./digest";
 export {
   type BuildOptions,

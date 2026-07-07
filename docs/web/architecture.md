@@ -120,6 +120,7 @@ Fragment size (→ symbol version) is chosen once at `Loaded` from the seed defa
 - **No network by construction** — CSP `connect-src 'none'`; no `fetch`/`XHR`/`WebSocket` in the codebase (lint rule). The file is never transmitted anywhere but the screen.
 - **No `eval`/dynamic code**; strict CSP `script-src`.
 - Confidentiality: **opt-in passphrase encryption shipped in v0.3** (reverses DEC-1). It lives in `core/crypto.ts` + the envelope, applied **after gzip** (compress-then-encrypt — ciphertext is incompressible), without touching `qr/` or `player/`; `ui/` gains an optional passphrase field + an honest indicator (never a bare "secure" claim — size/occurrence still leak). A plaintext transfer (no passphrase) is unchanged and claims no confidentiality. Design: [`../07-implementation-plan-v0.3-encryption.md`](../07-implementation-plan-v0.3-encryption.md).
+- **v0.4 — opt-in Argon2id KDF.** A stronger, memory-hard key derivation (via `hash-wasm`; its wasm is base64-embedded, so the single-file sender stays a single file, and it is lazy-loaded). Selected by a sender checkbox; PBKDF2 stays the default. It needs `'wasm-unsafe-eval'` in `script-src` (narrower than `'unsafe-eval'`; egress unchanged). See [`../09-implementation-plan-argon2.md`](../09-implementation-plan-argon2.md).
 
 ## 9. Testing
 
