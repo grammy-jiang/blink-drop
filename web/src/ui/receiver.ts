@@ -152,7 +152,7 @@ function main(): void {
     if (pct <= 0 && parts <= 0) {
       progressEl.textContent = "Point at the animation…";
     } else {
-      progressEl.textContent = `Collecting ${pct}%${parts > 0 ? ` · ~${parts} frames` : ""}`;
+      progressEl.textContent = `Collecting ${Math.round(pct * 100)}%${parts > 0 ? ` · ~${parts} frames` : ""}`;
     }
     // Stall detection: no percent gain for a while → escalate guidance.
     const now = Date.now();
@@ -210,7 +210,7 @@ function main(): void {
     lastSaveAt = now;
     void saveResume({
       parts: [...receivedParts],
-      percent: assembler.percentComplete,
+      percent: Math.round(assembler.percentComplete * 100), // percentComplete is a 0–1 fraction
       frames: assembler.expectedPartCount,
       savedAt: now,
     });
