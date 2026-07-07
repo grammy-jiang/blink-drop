@@ -1,8 +1,9 @@
-// Render a UR part string to a QR code on a canvas (docs/01-protocol.md §6).
-// The part is already UPPERCASED by the core; qrcode-generator's Alphanumeric
-// mode encodes it (every char — letters, digits, ` : / - . ` — is in the QR
-// alphanumeric charset), lowest error-correction level (stream-level fountain
-// redundancy replaces symbol-level ECC, blueprint L6).
+// Render a QR code onto a canvas.
+//   renderUrToCanvas   — a UR part string (already UPPERCASED), alphanumeric
+//                        mode, ECC-L (stream-level fountain redundancy replaces
+//                        symbol-level ECC, blueprint L6).
+//   renderTextToCanvas — arbitrary text (e.g. a URL), auto mode, ECC-M (a small,
+//                        robust static code — the sender's "open the receiver" QR).
 import qrcode from "qrcode-generator";
 
 export interface RenderOptions {
@@ -10,14 +11,7 @@ export interface RenderOptions {
   margin?: number; // quiet-zone modules
 }
 
-export function renderUrToCanvas(urUpper: string, canvas: HTMLCanvasElement, opts: RenderOptions = {}): void {
-  const scale = opts.scale ?? 6;
-  const margin = opts.margin ?? 4;
-
-  const qr = qrcode(0, "L"); // typeNumber 0 = auto-size to the data
-  qr.addData(urUpper, "Alphanumeric");
-  qr.make();
-
+function draw(qr: ReturnType<typeof qrcode>, canvas: HTMLCanvasElement, scale: number, margin: number): void {
   const count = qr.getModuleCount();
   const size = (count + margin * 2) * scale;
   canvas.width = size;
@@ -35,4 +29,18 @@ export function renderUrToCanvas(urUpper: string, canvas: HTMLCanvasElement, opt
       }
     }
   }
+}
+
+export function renderUrToCanvas(urUpper: string, canvas: HTMLCanvasElement, opts: RenderOptions = {}): void {
+  const qr = qrcode(0, "L"); // typeNumber 0 = auto-size to the data
+  qr.addData(urUpper, "Alphanumeric");
+  qr.make();
+  draw(qr, canvas, opts.scale ?? 6, opts.margin ?? 4);
+}
+
+export function renderTextToCanvas(text: string, canvas: HTMLCanvasElement, opts: RenderOptions = {}): void {
+  const qr = qrcode(0, "M"); // higher error correction for a small static code
+  qr.addData(text); // auto mode (Byte for a URL)
+  qr.make();
+  draw(qr, canvas, opts.scale ?? 4, opts.margin ?? 4);
 }

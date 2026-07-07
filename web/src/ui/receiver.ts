@@ -36,8 +36,35 @@ function main(): void {
       <div class="screen">
         <div class="hint">Point your phone at the animation on the other screen.</div>
         <button type="button" id="start" class="primary">Start scanning</button>
+        ${installHintHtml()}
       </div>`;
     (app.querySelector("#start") as HTMLButtonElement).addEventListener("click", () => void startScanning());
+    const dismiss = app.querySelector("#install-x");
+    if (dismiss) {
+      dismiss.addEventListener("click", () => {
+        try {
+          sessionStorage.setItem("bd-hide-install", "1");
+        } catch {}
+        (app.querySelector("#install") as HTMLElement | null)?.remove();
+      });
+    }
+  }
+
+  // On iOS the camera is most reliable from an installed (standalone) PWA. Show a
+  // dismissible "Add to Home Screen" tip only when running in a browser tab.
+  function installHintHtml(): string {
+    const nav = navigator as { standalone?: boolean };
+    const standalone = nav.standalone === true || matchMedia("(display-mode: standalone)").matches;
+    let dismissed = false;
+    try {
+      dismissed = sessionStorage.getItem("bd-hide-install") === "1";
+    } catch {}
+    if (standalone || dismissed) return "";
+    return `
+      <div class="install" id="install">
+        <span>Tip: <b>Share → Add to Home Screen</b> installs Blink-Drop so the camera opens reliably.</span>
+        <button type="button" id="install-x" class="ghost" aria-label="Dismiss">✕</button>
+      </div>`;
   }
 
   function renderInsecure(): void {
