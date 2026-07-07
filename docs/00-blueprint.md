@@ -330,12 +330,12 @@ Adaptive stage routing for the design pipeline (RUN / DEFER / DONE), with depend
 | Stage | Decision | Why / evidence | Depends on |
 |-------|----------|----------------|------------|
 | **protocol spec** (`01-protocol.md`) | **DONE** | The wire contract; OQ-1/2/5/6/7/10 resolved, adopt UR | blueprint |
-| **architecture-design** (`architecture --mode design`) | **DONE** (`blink-drop-architecture-design.md` + update notes 1–4) | Two containers + interface/data contracts + C4 + failure/observability need structuring before UX | blueprint, protocol |
+| **architecture-design** (`architecture --mode design`) | **DONE** (`blink-drop-architecture-design.md` + update notes 1–5) | Two containers + interface/data contracts + C4 + failure/observability need structuring before UX | blueprint, protocol |
 | **tech-stack-selection** (`architecture --mode stack`) | **DEFER (mostly decided)** | Stack already chosen and user-confirmed (adopt UR/MUR; sender + PWA receiver both vanilla TS + Vite + @ngraveio/bc-ur; gzip; SHA-256; single-file offline sender + GitHub Pages. Native URKit/SwiftUI/iOS 17 deferred). Record as confirmed-provisional in the design; run `stack` only if a formal stack doc is wanted | architecture-design |
 | **ux-design** (`ux-design`) | **DONE** (`blink-drop-ux-design.md`) | Receiver UX is the failure-prone part (framing, progress, stall, verify states); needs a skill-format architecture-design doc as input | architecture-design |
-| **security-review** | **DONE (protocol; re-run for v0.3)** | DEC-2 pass in `01-protocol.md` §11 (confidentiality, integrity, injection/DoS, decompression-bomb, dual-use); **re-run for the v0.3 encrypted envelope** (wire-format change) — `blink-drop-architecture-update.md` §U2.5. Re-run again if the wire format changes | protocol |
+| **security-review** | **DONE (protocol; re-run for v0.3 + v0.7)** | DEC-2 pass in `01-protocol.md` §11 (confidentiality, integrity, injection/DoS, decompression-bomb, dual-use); **re-run for the v0.3 encrypted envelope** and again for the **v0.7 multi-file envelope** (wire-format changes) — `blink-drop-architecture-update.md` §U2.5, §U5.4. Re-run again if the wire format changes | protocol |
 | **test-design** | **DEFER** | Covered for now by the two-tier test vectors + sweep harness (`04-roadmap.md`) and the ux-design E2E scenario seeds; formalize at implementation-plan | ux-design, roadmap |
-| **implementation-plan** | **DONE (per-release: `docs/05`–`11`)** | Skill not installed → hand-rolled; `04-roadmap.md` already seeds milestones M0–M4 and the design gate | ux-design |
+| **implementation-plan** | **DONE (per-release: `docs/05`–`14`)** | Skill not installed → hand-rolled; `04-roadmap.md` already seeds milestones M0–M4 and the design gate | ux-design |
 
 ## Appendix A — Prior Art, Workflow View
 

@@ -1,17 +1,17 @@
-# Blink-Drop — Implementation Plan (v0.7.1: multi-file "Save all as .zip")
+# Blink-Drop — Implementation Plan (v0.7.1: multi-file "Save .zip")
 
 | | |
 |---|---|
 | **Status** | Draft v0.1 — user-approved (2026-07-07); receiver-only |
 | **Target release** | **v0.7.1** |
-| **Scope** | Give the multi-file receiver an **iOS-reliable** delivery: a "Save all (.zip)" that bundles the N verified files into one archive. **Receiver-only; no wire/protocol/encryption change.** |
+| **Scope** | Give the multi-file receiver an **iOS-reliable** delivery: a **"Save .zip"** action that bundles the N verified files into one archive. **Receiver-only; no wire/protocol/encryption change.** |
 | **Why** | Multi-file receive on iOS is uncertain — `navigator.share({ files })` with several files isn't guaranteed across iOS versions/targets, and the per-file `<a download>` fallback is iOS-flaky (Safari tends to allow one download at a time). The one thing iOS handles cleanly for many files is a **single `.zip`** (Files saves + unzips it). |
 
 ---
 
 ## 1. Goal
 
-Keep **"Share all"** (individual multi-file Web Share) as the primary action where it works, and add **"Save all (.zip)"** as the guaranteed fallback: the N already-verified files are zipped client-side into one `.zip` and downloaded — a single file iOS saves to Files and unzips natively. Single-file transfers are unchanged.
+Keep **"Share all"** (individual multi-file Web Share) as the primary action where it works, and add **"Save .zip"** as the guaranteed fallback: the N already-verified files are zipped client-side into one `.zip` and downloaded — a single file iOS saves to Files and unzips natively. Single-file transfers are unchanged.
 
 ## 2. Decisions (resolved)
 
