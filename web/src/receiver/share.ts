@@ -3,11 +3,14 @@
 // sharing is unavailable (e.g. desktop browsers). Called ONLY after the SHA-256
 // gate has passed (protocol §7 / SG-1).
 
+import { safeName } from "./filename.js";
+
 export type ShareResult = "shared" | "downloaded" | "cancelled";
 
 export async function shareOrDownload(bytes: Uint8Array, name: string, mediaType: string): Promise<ShareResult> {
   const type = mediaType || "application/octet-stream";
-  const file = new File([bytes as unknown as BlobPart], name, { type });
+  const safe = safeName(name);
+  const file = new File([bytes as unknown as BlobPart], safe, { type });
 
   // Web Share API Level 2 (files) — opens the OS share sheet on iOS 16.4+.
   const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
@@ -21,7 +24,7 @@ export async function shareOrDownload(bytes: Uint8Array, name: string, mediaType
     }
   }
 
-  downloadFile(bytes, name, type);
+  downloadFile(bytes, safe, type);
   return "downloaded";
 }
 
@@ -35,7 +38,8 @@ export interface ShareItem {
 // the OS share sheet (iOS supports multiple). Falls back to downloading each.
 export async function shareOrDownloadMany(items: ShareItem[]): Promise<ShareResult> {
   const files = items.map(
-    (i) => new File([i.bytes as unknown as BlobPart], i.name, { type: i.mediaType || "application/octet-stream" }),
+    (i) =>
+      new File([i.bytes as unknown as BlobPart], safeName(i.name), { type: i.mediaType || "application/octet-stream" }),
   );
   const canShareFiles = typeof navigator.canShare === "function" && navigator.canShare({ files });
   if (canShareFiles) {
@@ -47,7 +51,7 @@ export async function shareOrDownloadMany(items: ShareItem[]): Promise<ShareResu
       // fall through to download on any other share failure
     }
   }
-  for (const i of items) downloadFile(i.bytes, i.name, i.mediaType || "application/octet-stream");
+  for (const i of items) downloadFile(i.bytes, safeName(i.name), i.mediaType || "application/octet-stream");
   return "downloaded";
 }
 
