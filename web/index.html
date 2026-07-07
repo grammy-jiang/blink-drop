@@ -18,7 +18,11 @@
       body {
         font-family: system-ui, sans-serif;
         margin: 0;
-        min-height: 100dvh;
+        /* svh (small viewport height) = the viewport WITH the browser toolbars
+           shown. Unlike dvh/vh, 100svh never exceeds the visible area on iOS
+           Safari, so a short page doesn't become scrollable into empty space.
+           It's a min-height, so tall content (the play stage) still grows + scrolls. */
+        min-height: 100svh;
         display: flex;
         flex-direction: column;
       }
