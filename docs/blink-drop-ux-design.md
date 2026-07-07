@@ -1,6 +1,8 @@
 # Blink-Drop — UX Design
 
 > **⚠️ Pre-pivot surface note (2026-07-07).** The receiver shipped as an **installable PWA**, not a native iOS app. Read every "iOS Receiver / SwiftUI / AVFoundation / ShareLink / .fileExporter / Xcode" reference below as its **PWA equivalent**: **getUserMedia + jsQR** over HTTPS, **Web Share API + download fallback**, install via the browser. The **state model, journeys, honest-progress, verified-gate, stall guidance, and result card are unchanged** — only the surface and share/export APIs differ. Pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
+>
+> **⚠️ Encryption update (v0.3, 2026-07-07).** Opt-in passphrase encryption **shipped** (DEC-1 reversed). The "no confidentiality in v1 / Future story" notes below (§4 non-goals, §Security summary, US-F1) are **superseded**: the receiver now has a **passphrase-prompt → wrong-passphrase (loud, file withheld) → 🔒 verified** flow, and the sender an optional passphrase field with honest-limits copy. Full UX + design: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md) §7.
 
 ## Contents
 
@@ -61,7 +63,7 @@ The architecture (`blink-drop-architecture-design.md` v0.1) was parsed; all UX-r
 - **Surfaces (§9, §23.1):** exactly two — Web Sender (desktop browser SPA) and iOS Receiver (SwiftUI, camera-first). No CLI/MCP/API/agent.
 - **State model (§14):** canonical lifecycle states for both sides (sender Idle→…→Stopped; receiver Ready→…→Complete/Failed) plus operational overlays `stalled` / `adjusting`. All UX states in this document resolve here.
 - **Interface contracts (§12):** wire is fixed by the protocol; capture (§12.4), presentation controls (§12.5), file export (§12.6), file input (§12.7) are the UX-facing contracts.
-- **Security/egress (§17):** `local_only`; **no confidentiality in v1 (DEC-1)** — UX must not imply privacy; SHA-256 end-gate (SG-1) governs when "verified" may be shown.
+- **Security/egress (§17):** `local_only`; **confidentiality is opt-in as of v0.3** (passphrase; reverses DEC-1) — the UX may show a lock but must state honest limits (size/occurrence still visible), never overclaim privacy; SHA-256 end-gate (SG-1) governs when "verified" may be shown.
 - **Failure/recovery (§18):** frame loss (absorbed), stall, digest mismatch, decompression overflow, permission denied, capture-throughput fallback, competing session, backgrounding, oversized file.
 - **Observability (§16):** local only; user-facing progress/rate; diagnostic events map here.
 - **Experience Architecture (§23):** honest progress, verified-only, loud fail, human-ACK cues — carried forward unchanged.
@@ -95,7 +97,7 @@ From the blueprint's **Product Experience Direction** (preserved, not changed):
 
 **Non-Goals (this stage).**
 - No pixel-level layout, visual design, CSS, colour systems, or final copy (illustrative wording only).
-- No confidentiality/encryption UX in v1 (DEC-1; a Future story only).
+- Encryption UX was a v1 non-goal; **now shipped opt-in in v0.3** (DEC-1 reversed) — passphrase prompt, wrong-passphrase state, 🔒 verified. Design: `07-implementation-plan-v0.3-encryption.md` §7.
 - No localization (blueprint non-goal) — English v1.
 - No CLI/MCP/API/agent UX (no such surface).
 - No re-decision of architecture, state model, contracts, or tech stack.
@@ -281,7 +283,7 @@ Format: ID · phase · surface · release-gate · depends-on · story · precond
 - Main: web sender plays → browser receiver (getUserMedia + bc-ur, reusing `web/src/core`) collects → verifies SHA-256 → shows pass/fail. Minimal UI.
 - States: mirrors receiver lifecycle at a bare level. Acceptance: AC-R10. E2E: E2E-1 (core), E2E-2 (optical).
 
-*(Future) US-F1 — Encrypt/decrypt with a passphrase (v1.1, DEC-1). Not in v1; recorded so the terminal and plan flows leave room for a passphrase step between file and gzip.*
+*(Shipped v0.3) US-F1 — Encrypt/decrypt with a passphrase (reverses DEC-1). Sender: optional passphrase field + honest-limits copy. Receiver: prompt → wrong-passphrase (loud, file withheld, re-prompt) → 🔒 Encrypted + ✓ Verified. Layer order: compress-**then**-encrypt (after gzip). Full design: `07-implementation-plan-v0.3-encryption.md`.*
 
 ---
 
