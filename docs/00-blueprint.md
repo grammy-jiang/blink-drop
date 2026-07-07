@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.5 — receiver pivoted to PWA |
+| **Status** | Draft v0.6 — opt-in passphrase encryption + resume shipped |
 | **Date** | 2026-07-07 |
 | **Scope** | Technology-neutral product definition: what the system does, the workflows and progress model of the two sides, and the constraints imposed by the relevant standards. No library, language, framework, or algorithm commitments — those are decided in the architecture documents and the protocol specification (`docs/01-protocol.md`). |
 | **Changes** | v0.6 — **opt-in passphrase encryption shipped (v0.3)**, reversing DEC-1 (§13): the product now offers optional passphrase confidentiality (content + metadata sealed) with an honest-limits UI; residual leaks (transfer size/occurrence, passphrase-strength ceiling) remain and are stated, not hidden. Mechanism lives in architecture, not here — `docs/blink-drop-architecture-update.md` (update-2) + `docs/07-implementation-plan-v0.3-encryption.md`. Affected: §2 U2 scope, §9 In/Out, §11 Risk 4, §13 DEC-1/security-review.<br>v0.5 — **receiver pivoted from a native iOS app to an installable PWA** (developer has no Mac; iOS native dev is macOS-only). Reconciled: Product Experience Direction receiver surface, §9 (a web receiver is now the product, not an excluded throwaway), §11 S7 wording, and a new Risk 8. Full technical delta in `docs/blink-drop-architecture-update.md`; the native iOS app is deferred (its `docs/ios/*` become the future-native reference).<br>v0.4 — added **Product Experience Direction** and **Recommended Next Stages** sections so the `architecture` and `ux-design` skills consume this blueprint cleanly (hybrid design-pipeline adoption). Content consolidated from existing §2/§6/§12/§13; no decisions changed.<br>v0.3 — applied `00-blueprint-review.md`: disambiguated presentation vs. partitioning parameters (§5, §7, OQ-10); added dual-use/exfiltration posture (Risk 7) and narrowed U2's v1 confidentiality scope (§2, DEC-1); added success criteria for R-ADJUST/R-SESSION (S8/S9); reframed M0 as a delivery-path precursor (§9); added OQ dependency structure + security-review recommendation (§13); added state diagrams (§6), a Working Assumptions appendix (Appendix C), a throughput-figure explanation (§3), and headroom to S6.<br>v0.2 — workflow/progress sections expanded and grounded in prior-art review; implementation mechanisms removed from normative text; offline-sender requirement added. |
@@ -60,7 +60,7 @@ Which mode (and thus which capacity budget) Blink-Drop uses is a protocol decisi
 | 100 KB | ~15–25 s |
 | 1 MB | ~2–3 min |
 | 2 MB (soft ceiling — warn) | ~4–6 min |
-| > 5 MB | out of scope |
+| > 8 MB | receiver refuses (soft warning above 2 MB) |
 
 The table figures are **conservative real-world estimates**, deliberately above the raw 8–10 KB/s goodput: they fold in session lock-on latency, fountain over-collection (the receiver needs slightly *more* than one file's worth of distinct frames), duplicate captures, and margin for optical variability. This puts them ~1.3–2× the raw rate, with the gap largest for small files where the fixed lock-on cost dominates and smallest for large files where steady-state streaming dominates. All figures are planning values pending the sweep harness (Appendix C, A1).
 
@@ -187,7 +187,7 @@ Prior art validates this explicitly: the reference systems were designed so a sl
 
 - **Mid-loop join** — receiver starts halfway through a cycle: works with no penalty beyond frames not yet seen (R-SUBSET).
 - **Competing sessions** — a second sender in view: receiver stays locked to the session it started (R-SESSION); switching is an explicit user action.
-- **App interruption** — receiver backgrounded mid-collection: v1 may discard state (no resume requirement); the workflow cost is rescanning, which R-SUBSET makes cheap.
+- **App interruption** — receiver backgrounded mid-collection: **resume across restart shipped (v0.6)** — a large transfer's partial is persisted (encrypted at rest) and offered on reopen; otherwise rescanning is cheap (R-SUBSET).
 - **Oversized file** — sender warns at the soft ceiling (§3) with the honest time estimate; the user decides.
 - **Abort** — either side, any time, no consequences.
 
@@ -197,7 +197,7 @@ Prior art validates this explicitly: the reference systems were designed so a sl
 |--------|------------|-------|
 | **Session** | session identity; file name, size, media type; content digest; compression indicator; **partitioning scheme** (source-block size, count) | Immutable once playback starts. This is distinct from **presentation parameters** (rate, density), which are *not* part of the session identity and may change mid-transfer (R-ADJUST). Session identity may be derived from the content digest — protocol decision (`OQ-7`). |
 | **Frame** | session reference; frame identity within the stream; payload; validity check | The atomic unit crossing the channel. Its *presentation* (which symbol version renders it) may vary; its *content* (which source blocks it encodes) is fixed by the partitioning scheme. |
-| **Transfer** (receiver-side state) | session reference; set of collected frame identities; reconstruction progress; status: `ready → locked → collecting → reconstructing → verifying → complete / failed` | Discarded on abort; no persistence in v1. |
+| **Transfer** (receiver-side state) | session reference; set of collected frame identities; reconstruction progress; status: `ready → locked → collecting → reconstructing → verifying → complete / failed` | Discarded on abort; partial persisted (encrypted at rest) for resume across restart (v0.6). |
 
 ## 8. Workflow Lessons from Prior Art
 
@@ -234,7 +234,7 @@ Blink-Drop ships in a sequence, not one drop. The two staged precursors below ar
 
 ### Out (permanently excluded from v1 — not build steps)
 
-- Multi-file or batch transfer; resume across receiver restarts
+- Multi-file or batch transfer *(resume across receiver restarts shipped in v0.6 — no longer excluded)*
 - Android receiver; native desktop senders
 - **Native iOS app** (deferred — needs a Mac, which the developer lacks; `docs/ios/*` + ADR-0006 are the future-native reference. The v1 receiver is the PWA above.)
 - App Store distribution (the PWA installs via the browser's "Add to Home Screen" instead)
@@ -329,12 +329,12 @@ Adaptive stage routing for the design pipeline (RUN / DEFER / DONE), with depend
 | Stage | Decision | Why / evidence | Depends on |
 |-------|----------|----------------|------------|
 | **protocol spec** (`01-protocol.md`) | **DONE** | The wire contract; OQ-1/2/5/6/7/10 resolved, adopt UR | blueprint |
-| **architecture-design** (`architecture --mode design`) | **RUN (next)** | Two containers + interface/data contracts + C4 + failure/observability need structuring before UX | blueprint, protocol |
+| **architecture-design** (`architecture --mode design`) | **DONE** (`blink-drop-architecture-design.md` + update notes 1–4) | Two containers + interface/data contracts + C4 + failure/observability need structuring before UX | blueprint, protocol |
 | **tech-stack-selection** (`architecture --mode stack`) | **DEFER (mostly decided)** | Stack already chosen and user-confirmed (adopt UR/MUR; sender + PWA receiver both vanilla TS + Vite + @ngraveio/bc-ur; gzip; SHA-256; single-file offline sender + GitHub Pages. Native URKit/SwiftUI/iOS 17 deferred). Record as confirmed-provisional in the design; run `stack` only if a formal stack doc is wanted | architecture-design |
-| **ux-design** (`ux-design`) | **RUN (after architecture)** | Receiver UX is the failure-prone part (framing, progress, stall, verify states); needs a skill-format architecture-design doc as input | architecture-design |
+| **ux-design** (`ux-design`) | **DONE** (`blink-drop-ux-design.md`) | Receiver UX is the failure-prone part (framing, progress, stall, verify states); needs a skill-format architecture-design doc as input | architecture-design |
 | **security-review** | **DONE (protocol; re-run for v0.3)** | DEC-2 pass in `01-protocol.md` §11 (confidentiality, integrity, injection/DoS, decompression-bomb, dual-use); **re-run for the v0.3 encrypted envelope** (wire-format change) — `blink-drop-architecture-update.md` §U2.5. Re-run again if the wire format changes | protocol |
 | **test-design** | **DEFER** | Covered for now by the two-tier test vectors + sweep harness (`04-roadmap.md`) and the ux-design E2E scenario seeds; formalize at implementation-plan | ux-design, roadmap |
-| **implementation-plan** | **RUN (after ux-design)** | Skill not installed → hand-rolled; `04-roadmap.md` already seeds milestones M0–M4 and the design gate | ux-design |
+| **implementation-plan** | **DONE (per-release: `docs/05`–`11`)** | Skill not installed → hand-rolled; `04-roadmap.md` already seeds milestones M0–M4 and the design gate | ux-design |
 
 ## Appendix A — Prior Art, Workflow View
 

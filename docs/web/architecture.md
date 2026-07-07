@@ -4,11 +4,11 @@
 |---|---|
 | **Status** | Draft v0.1 |
 | **Date** | 2026-07-07 |
-| **Depends on** | `../01-protocol.md` (v0.1) — the wire contract; `../00-blueprint.md` (v0.3) — §6.1 sender workflow, R-OFFLINE |
+| **Depends on** | `../01-protocol.md` — the wire contract; `../00-blueprint.md` (v0.6) — §6.1 sender workflow, R-OFFLINE |
 | **Governs** | `web/` only. **Must not** reference `ios/`. Shared surface is the protocol + `shared/test-vectors/`. |
 | **Scope** | How the sender is built: stack, modules, data flow, offline packaging, testing. The *wire* is fixed by the protocol doc; this is the *implementation* of the sending half. |
 
-> **⚠️ Note (2026-07-07):** Current sender doc, with drifts fixed inline: the QR library is **`qrcode-generator` (kazuhikoarase)** (nayuki's isn't on npm), and the **receiver is now an installable PWA** (TypeScript, reusing `web/src/core`), not a native `ios/` app — so any "`ios/`" counterpart reference below means the PWA receiver. Also: **bc-ur needs `Buffer` + `process` polyfills** in the browser (a required Vite build step). Pivot delta: [`../blink-drop-architecture-update.md`](../blink-drop-architecture-update.md).
+> **⚠️ Note (2026-07-07):** Current sender doc, with drifts fixed inline: the QR library is **`qrcode-generator` (kazuhikoarase)** (nayuki's isn't on npm), and the **receiver is now an installable PWA** (TypeScript, reusing `web/src/core`), not a native `ios/` app — so any "`ios/`" counterpart reference below means the PWA receiver. Also: **bc-ur needs `Buffer` + `process` polyfills** in the browser (a required Vite build step). Pivot delta: [`../blink-drop-architecture-update.md`](../blink-drop-architecture-update.md). Since the pivot the sender also gained **opt-in encryption (v0.3) + Argon2id (v0.4)** and **drag-drop + soft-ceiling (v0.5)**; the **PWA receiver's** current design (camera scan → verify → share, encrypted prompt, **resume across restart / encrypted-at-rest**) lives in the update note (§U2–U4) + [`../11-implementation-plan-resume.md`](../11-implementation-plan-resume.md) and [`../07-implementation-plan-v0.3-encryption.md`](../07-implementation-plan-v0.3-encryption.md), pending a dedicated receiver-arch doc.
 
 ---
 
@@ -28,7 +28,7 @@ Everything is client-side and dependency-light: bc-ur and qrcode-generator are t
 
 ## 1. Responsibilities
 
-**Does:** take a file entirely in-browser → gzip → build the dCBOR envelope → drive bc-ur to produce the endless part stream → render each part as a QR frame → loop at the chosen presentation parameters → show the pre-transfer estimate, cycle counter, and controls (blueprint §6.1).
+**Does:** take a file entirely in-browser (pick or **drag-drop**) → *optionally encrypt under a passphrase (§8)* → gzip → build the dCBOR envelope → drive bc-ur to produce the endless part stream → render each part as a QR frame → loop at the chosen presentation parameters → show the pre-transfer estimate, cycle counter, controls, a **soft-ceiling warning** for large files, and a static **receiver-URL QR** (so the phone can open the PWA receiver) (blueprint §6.1).
 
 **Does not:** touch the network (no fetch/XHR/WebSocket — enforced, §8), persist the file, know anything about the receiver, or implement any acknowledgment path (one-way channel).
 
@@ -61,7 +61,7 @@ web/
 │   │   ├── gzip.ts           #   CompressionStream wrappers (compress / bounded-decompress, protocol §9)
 │   │   └── types.ts          #   Header, Message, protocol constants (keys, compression enum)
 │   ├── qr/
-│   │   └── render.ts         #   UR string → uppercase → qrcode-generator(alphanumeric, version, ECC-L) → canvas
+│   │   └── render.ts         #   UR part → uppercase → qrcode-generator(alphanumeric, ECC-L) → canvas; + renderTextToCanvas (the static receiver-URL QR, ECC-M)
 │   ├── player/
 │   │   ├── sequencer.ts      #   drive UREncoder; precompute the frame set (Prepared state, L5)
 │   │   └── loop.ts           #   rAF loop at {rate, scale}; cycle counter; pause/resume (R-ADJUST)
@@ -118,7 +118,7 @@ Fragment size (→ symbol version) is chosen once at `Loaded` from the seed defa
 ## 8. Security / privacy (blueprint Risk 4/7, protocol §11)
 
 - **No network by construction** — CSP `connect-src 'none'`; no `fetch`/`XHR`/`WebSocket` in the codebase (lint rule). The file is never transmitted anywhere but the screen.
-- **No `eval`/dynamic code**; strict CSP `script-src`.
+- **No JS `eval`** — `script-src` is `'self'` plus `'wasm-unsafe-eval'` only (for the opt-in Argon2 KDF's WebAssembly, v0.4 below); no arbitrary dynamic code.
 - Confidentiality: **opt-in passphrase encryption shipped in v0.3** (reverses DEC-1). It lives in `core/crypto.ts` + the envelope, applied **after gzip** (compress-then-encrypt — ciphertext is incompressible), without touching `qr/` or `player/`; `ui/` gains an optional passphrase field + an honest indicator (never a bare "secure" claim — size/occurrence still leak). A plaintext transfer (no passphrase) is unchanged and claims no confidentiality. Design: [`../07-implementation-plan-v0.3-encryption.md`](../07-implementation-plan-v0.3-encryption.md).
 - **v0.4 — opt-in Argon2id KDF.** A stronger, memory-hard key derivation (via `hash-wasm`; its wasm is base64-embedded, so the single-file sender stays a single file, and it is lazy-loaded). Selected by a sender checkbox; PBKDF2 stays the default. It needs `'wasm-unsafe-eval'` in `script-src` (narrower than `'unsafe-eval'`; egress unchanged). See [`../09-implementation-plan-argon2.md`](../09-implementation-plan-argon2.md).
 
