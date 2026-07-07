@@ -3,6 +3,26 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.9.4 — 2026-07-08
+
+Fix iOS over-scroll — the page no longer scrolls into empty space.
+
+### Fixed
+
+- **The page no longer scrolls past its content on iOS Safari.** Both pages
+  sized their full-height shell with `min-height: 100dvh`, which on iOS resolves
+  to the toolbar-*hidden* height — taller than the visible area when the toolbars
+  are shown — so a short screen (e.g. the receiver's result card) became
+  scrollable into empty space. Switched to **`100svh`** (small viewport height,
+  toolbars shown), which never exceeds the visible area. Tall content (the
+  sender's play stage) still grows and scrolls normally.
+
+### Notes
+
+- Verified there is **no CSS overflow** (in Chrome the document height equals the
+  viewport); the over-scroll is iOS-Safari-specific to the `dvh`/`vh` unit, which
+  `svh` fixes. Confirm on the device.
+
 ## 0.9.3 — 2026-07-08
 
 Restore "Share all" alongside "Share .zip" — both, not either.
@@ -417,6 +437,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.9.4]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.4
 [0.9.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.3
 [0.9.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.2
 [0.9.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.1
