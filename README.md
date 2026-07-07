@@ -29,12 +29,16 @@ keep it playing until the phone shows **Verified**.
   verify-failure that withholds the file, and **resume across restart** (an
   interrupted large scan continues instead of restarting; the partial is
   encrypted at rest).
+- **Multiple files per transfer** — send several files in one animated stream
+  (native manifest envelope). The receiver verifies **each file independently**
+  and offers **Share all** or a single bundled **`.zip`** (the reliable path on
+  iOS). Single-file transfers are byte-identical to before.
 - **Share out** — the verified file goes to the OS share sheet (Web Share API)
   with a download fallback.
 
 ## Status
 
-Shipping — latest **v0.6.1** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
+Shipping — latest **v0.7.1** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
 proven on real iPhone optics and the PWA receiver is device-validated. The
 **native iOS app is deferred** (its toolchain is macOS-only and the developer has
 no Mac); the PWA is the receiver. `docs/ios/*` remain the future-native reference.

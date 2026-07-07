@@ -8,17 +8,18 @@ architecture (+ update notes), and UX design; this README is how to work in `web
 ## What's here
 
 - **`src/core/`** — the pure, isomorphic protocol core (envelope · gzip · SHA-256
-  · UR/MUR transport · **passphrase encryption**). Runs in browser and node;
-  bound to `../shared/test-vectors/`.
-- **Sender** (`index.html` + `src/ui/sender.ts`) — pick or **drop** a file →
-  plan/ETA → animated QR canvas; rate/density controls; optional **passphrase**
-  (AES-256-GCM; PBKDF2 or opt-in **Argon2id**) + strength hint; soft-ceiling
-  warning; a receiver-URL QR.
+  · UR/MUR transport · **passphrase encryption** · **multi-file manifest**). Runs
+  in browser and node; bound to `../shared/test-vectors/`.
+- **Sender** (`index.html` + `src/ui/sender.ts`) — pick or **drop** **one or more
+  files** → plan/ETA → animated QR canvas; rate/density controls; optional
+  **passphrase** (AES-256-GCM; PBKDF2 or opt-in **Argon2id**) + strength hint;
+  soft-ceiling warning; a receiver-URL QR.
 - **PWA receiver** (`receiver.html` + `src/ui/receiver.ts`) — camera scan → whole-%
-  progress + stall guidance → SHA-256 verify → Web Share; encrypted passphrase
-  prompt + distinct wrong-passphrase state; **resume across restart** (partial
-  encrypted at rest). Installable (manifest + service worker). `receiver.html?debug`
-  keeps the M0 loopback/stream self-tests.
+  progress + stall guidance → **per-file** SHA-256 verify → Web Share; **multi-file
+  card** (N-file list, **Share all** / **Save .zip** via `fflate`); encrypted
+  passphrase prompt + distinct wrong-passphrase state; **resume across restart**
+  (partial encrypted at rest). Installable (manifest + service worker).
+  `receiver.html?debug` keeps the M0 loopback/stream self-tests.
 
 ## Commands
 
@@ -43,12 +44,12 @@ src/
     digest.ts     #   SHA-256 (WebCrypto)
     crypto.ts     #   passphrase encryption: AES-256-GCM + PBKDF2 / opt-in Argon2id (hash-wasm)
     types.ts      #   protocol constants + Header / envelope shapes
-    envelope.ts   #   file <-> message; plaintext + encrypted variants; SHA-256 gate (SG-1)
+    envelope.ts   #   file(s) <-> message; single/encrypted/multi-file variants; per-file SHA-256 gate (SG-1)
     ur.ts         #   message <-> UR/MUR parts (bc-ur); the only bc-ur boundary
-    index.ts      #   public API + encodeFileToQrParts / decodeQrPartsToFile
+    index.ts      #   public API + encode/decode{File,Files}ToQrParts
   qr/             # QR render (qrcode-generator) + scan (jsQR)
   player/         # the sender's frame player (loops systematic + fountain parts)
-  receiver/       # camera.ts, share.ts (Web Share), resume.ts (encrypted-at-rest partial)
+  receiver/       # camera.ts, share.ts (Web Share), bundle.ts (.zip via fflate), resume.ts (encrypted-at-rest partial)
   ui/             # sender.ts, receiver.ts, debug.ts, size.ts
 scripts/          # gen-vectors, gen-icons, gen-static-qr
 test/             # vitest: core, crypto, vectors, edge, resume, receiver

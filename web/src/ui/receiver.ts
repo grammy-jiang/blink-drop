@@ -7,6 +7,7 @@ import {
   openFilesMessage,
   WrongPassphraseError,
 } from "../core/index.js";
+import { zipFiles } from "../receiver/bundle.js";
 import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
 import {
   clear as clearResume,
@@ -14,7 +15,7 @@ import {
   type ResumePartial,
   save as saveResume,
 } from "../receiver/resume.js";
-import { shareOrDownloadMany } from "../receiver/share.js";
+import { downloadFile, shareOrDownloadMany } from "../receiver/share.js";
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
 const params = new URLSearchParams(location.search);
@@ -299,7 +300,7 @@ function main(): void {
           }
           <div class="actions">
             <button type="button" id="share" class="primary">${single ? "Share" : "Share all"}</button>
-            <button type="button" id="save">${single ? "Save" : "Save all"}</button>
+            <button type="button" id="save">${single ? "Save" : "Save .zip"}</button>
             <button type="button" id="discard" class="ghost">Discard</button>
           </div>
           <div class="shareresult" id="shareresult"></div>
@@ -326,8 +327,16 @@ function main(): void {
       shareResult.textContent = r === "cancelled" ? "" : r === "shared" ? "Shared." : "Saved to downloads.";
     });
     (app.querySelector("#save") as HTMLButtonElement).addEventListener("click", async () => {
-      await shareOrDownloadMany(items);
-      shareResult.textContent = "Saved.";
+      if (single) {
+        await shareOrDownloadMany(items);
+        shareResult.textContent = "Saved.";
+        return;
+      }
+      // Multi-file: bundle into one .zip — the one shape iOS Files saves + unzips
+      // reliably, where per-file share/download is flaky (docs/14).
+      const zip = zipFiles(items.map((i) => ({ name: i.name, bytes: i.bytes })));
+      downloadFile(zip, `blink-drop-${files.length}-files.zip`, "application/zip");
+      shareResult.textContent = "Saved .zip.";
     });
     (app.querySelector("#discard") as HTMLButtonElement).addEventListener("click", renderReady);
   }
