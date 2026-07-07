@@ -3,6 +3,25 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.6.0 — 2026-07-07
+
+Receiver **resume across restart**. Receiver-only; no protocol or encryption change.
+
+### Added
+
+- **Resume an interrupted scan.** If a large transfer is interrupted (app
+  backgrounded, tab closed, phone locked), reopening the receiver offers
+  *Resume (X%)* / *Start fresh* instead of restarting from 0%. Only transfers
+  above ~40 frames are persisted (small ones finish in seconds).
+
+### Security
+
+- The persisted partial is **encrypted at rest**: the received QR parts are
+  AES-GCM-encrypted with a receiver-local **non-extractable** key kept in
+  IndexedDB, so **no readable file bytes ever hit disk** for any transfer
+  (plaintext or encrypted). Cleared on a verified transfer; expires after 24 h.
+  Does not defend against a full-device compromise.
+
 ## 0.5.0 — 2026-07-07
 
 Sender polish — the product is now **v1 feature-complete** (every blueprint §9
@@ -152,6 +171,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.6.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.0
 [0.5.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.5.0
 [0.4.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.3.0
