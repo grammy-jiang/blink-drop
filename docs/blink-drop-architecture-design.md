@@ -1,6 +1,8 @@
 # Blink-Drop — Architecture Design
 
 > **⚠️ Amended by [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md) (update-1, 2026-07-07).** The receiver **pivoted from a native iOS app to an installable PWA** (the developer has no Mac). Read this base design **as patched by that note** — treat *every* native-iOS receiver detail below (SwiftUI / AVFoundation / URKit / AVCaptureMetadataOutput / ShareLink / Xcode / ADR-0006) as **superseded** (ADR-0006 → ADR-0009). The sender, protocol, `web/src/core`, and test vectors are unchanged. Note also: the sender's QR-generation library is **`qrcode-generator` (kazuhikoarase)**, not the nayuki library named elsewhere in this base (nayuki's is not published to npm).
+>
+> **⚠️ Also amended by update-2 (2026-07-07): DEC-1 reversed.** Opt-in passphrase encryption **shipped (v0.3)**. Treat every "no v1 confidentiality" / "v1.1 encryption" / "passphrase between file and gzip" statement below (§1.4, §4.3, §17.4–17.5, ADR-0007, R-4, §23.7, §26–27, W3) as **superseded** — confidentiality is now **opt-in** (AES-256-GCM + PBKDF2; compress-**then**-encrypt; metadata sealed), with plaintext still the default. Details: the update note's **Update-2 addendum + ADR-0010**, and [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md).
 
 ## Contents
 
