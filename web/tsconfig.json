@@ -15,5 +15,5 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src", "test", "scripts", "vite.config.ts", "vite.config.sender.ts", "vitest.config.ts"]
+  "include": ["src", "test", "scripts", "vite.config.ts", "vite.config.sender.ts", "vite-csp.ts", "vitest.config.ts"]
 }
