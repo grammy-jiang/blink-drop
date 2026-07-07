@@ -69,4 +69,4 @@ Each task: goal · files · acceptance (→ blueprint S-criteria / ux E2E seed) 
 
 ## Deferred (not MVP-1)
 
-Native iOS app (needs a Mac); encryption/DEC-1 (v1.1); resume; multi-file; Android. `architecture --mode materialize` to merge the update note into a canonical design — later.
+Native iOS app (needs a Mac); encryption/DEC-1 (**v0.3** — designed in [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md)); resume; multi-file; Android. `architecture --mode materialize` to merge the update note into a canonical design — later.
