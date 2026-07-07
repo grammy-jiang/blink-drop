@@ -102,6 +102,58 @@ async function framingVectorEncrypted(
   console.log(`framing/${name} (encrypted): ${parts.length} part(s), message ${message.length}B`);
 }
 
+interface ArgonEnc {
+  passphrase: string;
+  salt: Uint8Array;
+  nonce: Uint8Array;
+  argon: { m: number; t: number; p: number };
+}
+
+// Encrypted framing vector using the opt-in Argon2id KDF (docs/09). Pinned
+// salt+nonce+params+passphrase → byte-exact and reproducible.
+async function framingVectorArgon2(
+  name: string,
+  input: FileInput,
+  maxFragmentLength: number,
+  enc: ArgonEnc,
+): Promise<void> {
+  const opts = {
+    passphrase: enc.passphrase,
+    kdf: "argon2id" as const,
+    salt: enc.salt,
+    nonce: enc.nonce,
+    argon: enc.argon,
+  };
+  const message = await buildMessage(input, opts);
+  const parts = systematicQrParts(message, maxFragmentLength);
+  const dir = await outDir("framing", name);
+  await writeFile(new URL("message.cbor.hex", dir), `${hex(message)}\n`);
+  await writeFile(new URL("parts.txt", dir), `${parts.join("\n")}\n`);
+  await writeFile(
+    new URL("params.json", dir),
+    `${JSON.stringify(
+      {
+        urType: "blink-drop",
+        maxFragmentLength,
+        seqLen: parts.length,
+        name: input.name,
+        mediaType: input.mediaType,
+        encrypted: true,
+        kdf: "argon2id",
+        cipher: "aes-256-gcm",
+        argon: enc.argon,
+        saltHex: hex(enc.salt),
+        nonceHex: hex(enc.nonce),
+        passphrase: enc.passphrase,
+        plaintextHex: hex(input.bytes),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  console.log(`framing/${name} (argon2id): ${parts.length} part(s), message ${message.length}B`);
+}
+
 async function roundtripVector(name: string, input: FileInput): Promise<void> {
   const dir = await outDir("roundtrip", name);
   await writeFile(new URL("input.bin", dir), input.bytes);
@@ -136,6 +188,12 @@ await framingVectorEncrypted("vec-04-encrypted", inputs.hello, 600, {
   salt: new Uint8Array(16).fill(0x5a),
   nonce: new Uint8Array(12).fill(0x6b),
   iterations: 4096,
+});
+await framingVectorArgon2("vec-05-encrypted-argon2", inputs.hello, 600, {
+  passphrase: "blink-drop test vector passphrase",
+  salt: new Uint8Array(16).fill(0x5a),
+  nonce: new Uint8Array(12).fill(0x6b),
+  argon: { m: 512, t: 1, p: 1 }, // tiny for a fast, reproducible vector
 });
 await roundtripVector("vec-01-hello", inputs.hello);
 await roundtripVector("vec-02-binary", inputs.binary);

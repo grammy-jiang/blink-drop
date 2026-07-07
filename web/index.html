@@ -32,6 +32,8 @@
     <label class="passrow">Passphrase (optional)
       <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="leave blank = unencrypted" />
     </label>
+    <div id="strength" class="note"></div>
+    <label class="passrow"><input type="checkbox" id="argon" /> Stronger key derivation (Argon2id) — slightly slower, loads a small module the first time</label>
     <div id="passnote" class="note"></div>
     <input type="file" id="file" />
     <div id="plan"></div>

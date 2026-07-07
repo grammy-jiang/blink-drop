@@ -11,10 +11,15 @@ import type { Plugin } from "vite";
 //   app assets, so 'none' would break offline. getUserMedia is a permission (not
 //   connect-src) and the MediaStream is set via srcObject (not a URL), so the
 //   camera is unaffected; Web Share and blob: downloads are local, not network.
+//
+// 'wasm-unsafe-eval' (both pages, v0.4): the OPT-IN Argon2id KDF runs in
+//   WebAssembly (hash-wasm), which needs this directive to instantiate. It is
+//   strictly narrower than 'unsafe-eval' (no JS eval), and egress stays
+//   forbidden (connect-src 'none'/'self'), so the no-upload guarantee is intact.
 const SENDER_CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; object-src 'none'";
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; object-src 'none'";
 const RECEIVER_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; base-uri 'none'; object-src 'none'";
+  "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; base-uri 'none'; object-src 'none'";
 
 export function cspPlugin(): Plugin {
   return {

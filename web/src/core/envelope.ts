@@ -19,10 +19,12 @@
 // caller unless the digest matches.
 
 import { type CborMap, type CborValue, decode as cborDecode, encode as cborEncode } from "./cbor";
-import { aesGcmDecrypt, aesGcmEncrypt, deriveKey, randomBytes } from "./crypto";
+import { type Argon2Params, aesGcmDecrypt, aesGcmEncrypt, deriveKey, deriveKeyArgon2, randomBytes } from "./crypto";
 import { bytesEqual, sha256 } from "./digest";
 import { gunzip, gzip } from "./gzip";
 import {
+  ARGON2_DEFAULTS,
+  ArgonKey,
   CIPHER_AES_256_GCM,
   Compression,
   type CompressionValue,
@@ -34,6 +36,7 @@ import {
   HARD_MAX_DECOMPRESSED_BYTES,
   type Header,
   HeaderKey,
+  KDF_ARGON2ID,
   KDF_PBKDF2_SHA256,
   OuterKey,
   PBKDF2_ITERATIONS,
@@ -62,11 +65,15 @@ export interface BuildOptions {
   // Supplying a passphrase produces the encrypted envelope; omitting it keeps
   // the plaintext wire format byte-for-byte.
   passphrase?: string;
+  // KDF selection (default "pbkdf2-sha256"). "argon2id" is the opt-in memory-hard
+  // KDF; it lazily loads a wasm module (docs/09).
+  kdf?: typeof KDF_PBKDF2_SHA256 | typeof KDF_ARGON2ID;
   // Deterministic overrides — for test vectors ONLY. Production always uses a
-  // fresh CSPRNG salt/nonce and the PBKDF2_ITERATIONS default.
+  // fresh CSPRNG salt/nonce and the default work factors.
   salt?: Uint8Array;
   nonce?: Uint8Array;
-  iterations?: number;
+  iterations?: number; // pbkdf2 work factor
+  argon?: Argon2Params; // argon2id cost params
 }
 
 export async function buildMessage(input: FileInput, opts: BuildOptions = {}): Promise<Uint8Array> {
@@ -94,27 +101,58 @@ export async function buildMessage(input: FileInput, opts: BuildOptions = {}): P
   const inner = cborEncode([meta, payload]);
   const salt = opts.salt ?? randomBytes(SALT_BYTES);
   const nonce = opts.nonce ?? randomBytes(GCM_NONCE_BYTES);
-  const iterations = opts.iterations ?? PBKDF2_ITERATIONS;
 
-  const outer = buildOuter(salt, nonce, iterations);
+  let outer: CborMap;
+  let key: CryptoKey;
+  if ((opts.kdf ?? KDF_PBKDF2_SHA256) === KDF_ARGON2ID) {
+    const argon = opts.argon ?? ARGON2_DEFAULTS;
+    outer = buildOuterArgon2(salt, nonce, argon);
+    key = await deriveKeyArgon2(opts.passphrase, salt, argon);
+  } else {
+    const iterations = opts.iterations ?? PBKDF2_ITERATIONS;
+    outer = buildOuterPbkdf2(salt, nonce, iterations);
+    key = await deriveKey(opts.passphrase, salt, iterations);
+  }
+
   const aad = cborEncode(outer); // deterministic (canonical CBOR) → reproducible on decrypt
-  const key = await deriveKey(opts.passphrase, salt, iterations);
   const ciphertext = await aesGcmEncrypt(key, nonce, inner, aad);
   return cborEncode([outer, ciphertext]);
 }
 
-function buildOuter(salt: Uint8Array, nonce: Uint8Array, iterations: number): CborMap {
-  const params: CborMap = new Map<number, CborValue>([
-    [EncKey.kdf, KDF_PBKDF2_SHA256],
-    [EncKey.iter, iterations],
-    [EncKey.salt, salt],
-    [EncKey.cipher, CIPHER_AES_256_GCM],
-    [EncKey.nonce, nonce],
-  ]);
+function buildOuter(enc: CborMap): CborMap {
   return new Map<number, CborValue>([
     [OuterKey.version, ENVELOPE_VERSION_ENCRYPTED],
-    [OuterKey.enc, params],
+    [OuterKey.enc, enc],
   ]);
+}
+
+function buildOuterPbkdf2(salt: Uint8Array, nonce: Uint8Array, iterations: number): CborMap {
+  return buildOuter(
+    new Map<number, CborValue>([
+      [EncKey.kdf, KDF_PBKDF2_SHA256],
+      [EncKey.iter, iterations],
+      [EncKey.salt, salt],
+      [EncKey.cipher, CIPHER_AES_256_GCM],
+      [EncKey.nonce, nonce],
+    ]),
+  );
+}
+
+function buildOuterArgon2(salt: Uint8Array, nonce: Uint8Array, argon: Argon2Params): CborMap {
+  const argonParams: CborMap = new Map<number, CborValue>([
+    [ArgonKey.m, argon.m],
+    [ArgonKey.t, argon.t],
+    [ArgonKey.p, argon.p],
+  ]);
+  return buildOuter(
+    new Map<number, CborValue>([
+      [EncKey.kdf, KDF_ARGON2ID],
+      [EncKey.iter, argonParams], // key 2 holds the argon params sub-map
+      [EncKey.salt, salt],
+      [EncKey.cipher, CIPHER_AES_256_GCM],
+      [EncKey.nonce, nonce],
+    ]),
+  );
 }
 
 // Decode the top-level [map, bytes] shape shared by both message kinds.
@@ -199,20 +237,16 @@ async function openEncrypted(
   const params = outer.get(OuterKey.enc);
   if (!(params instanceof Map)) throw new MalformedMessageError("encrypted envelope missing enc params");
 
-  const kdf = params.get(EncKey.kdf);
   const cipher = params.get(EncKey.cipher);
-  const iterations = params.get(EncKey.iter);
   const salt = params.get(EncKey.salt);
   const nonce = params.get(EncKey.nonce);
-  if (kdf !== KDF_PBKDF2_SHA256) throw new MalformedMessageError(`unsupported kdf ${String(kdf)}`);
   if (cipher !== CIPHER_AES_256_GCM) throw new MalformedMessageError(`unsupported cipher ${String(cipher)}`);
-  if (typeof iterations !== "number" || iterations <= 0) throw new MalformedMessageError("invalid kdf iterations");
   if (!(salt instanceof Uint8Array) || salt.length !== SALT_BYTES) throw new MalformedMessageError("invalid kdf salt");
   if (!(nonce instanceof Uint8Array) || nonce.length !== GCM_NONCE_BYTES)
     throw new MalformedMessageError("invalid nonce");
 
+  const key = await deriveKeyForKdf(params.get(EncKey.kdf), params.get(EncKey.iter), passphrase, salt);
   const aad = cborEncode(outer);
-  const key = await deriveKey(passphrase, salt, iterations);
   const inner = await aesGcmDecrypt(key, nonce, ciphertext, aad); // WrongPassphraseError on tag failure
 
   let decoded: CborValue;
@@ -228,6 +262,32 @@ async function openEncrypted(
   if (!(metaMap instanceof Map)) throw new MalformedMessageError("inner meta must be a CBOR map");
   if (!(payload instanceof Uint8Array)) throw new MalformedMessageError("inner payload must be a CBOR byte string");
   return { header: readHeader(metaMap), payload };
+}
+
+// Derive the AES key for whichever KDF the envelope names. `work` is EncKey.iter:
+// a uint (PBKDF2 iterations) or an { m, t, p } map (Argon2id cost params). An
+// unknown kdf fails closed — a build without Argon2 support never mis-accepts.
+async function deriveKeyForKdf(
+  kdf: CborValue | undefined,
+  work: CborValue | undefined,
+  passphrase: string,
+  salt: Uint8Array,
+): Promise<CryptoKey> {
+  if (kdf === KDF_PBKDF2_SHA256) {
+    if (typeof work !== "number" || work <= 0) throw new MalformedMessageError("invalid kdf iterations");
+    return deriveKey(passphrase, salt, work);
+  }
+  if (kdf === KDF_ARGON2ID) {
+    if (!(work instanceof Map)) throw new MalformedMessageError("invalid argon2 params");
+    const m = work.get(ArgonKey.m);
+    const t = work.get(ArgonKey.t);
+    const p = work.get(ArgonKey.p);
+    if (typeof m !== "number" || typeof t !== "number" || typeof p !== "number") {
+      throw new MalformedMessageError("invalid argon2 params");
+    }
+    return deriveKeyArgon2(passphrase, salt, { m, t, p });
+  }
+  throw new MalformedMessageError(`unsupported kdf ${String(kdf)}`);
 }
 
 export async function openMessage(message: Uint8Array, opts: OpenOptions = {}): Promise<DecodedFile> {
