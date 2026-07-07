@@ -128,7 +128,7 @@ async function processFiles(files: File[]): Promise<void> {
   const parts = qrPartStream(message, Math.ceil(seqLen * 1.5), DEFAULT_MAX_FRAGMENT_LENGTH);
 
   const label = inputs.length === 1 ? inputs[0]!.name : `${inputs.length} files`;
-  planEl.dataset.base = `${label} · ${totalBytes} B · ${seqLen} frames`;
+  planEl.dataset.base = label; // minimal — updateEta appends "· ~Ns / loop"
   updateEta();
 
   player.load(parts);
