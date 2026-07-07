@@ -238,6 +238,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.7.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.1
 [0.7.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.0
 [0.6.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.2
 [0.6.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.1

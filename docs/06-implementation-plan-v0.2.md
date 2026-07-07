@@ -5,7 +5,7 @@
 | **Status** | Draft v0.1 |
 | **Date** | 2026-07-07 |
 | **Target release** | **v0.2.0** |
-| **Scope** | Close the gap between the shipped code and the design's claims (security), put a test net under the receiver, and add small user-facing polish. **Encryption is out of scope** — it changes the protocol and gets its own cycle (protocol/arch update → `07-implementation-plan-encryption.md` → v0.3). |
+| **Scope** | Close the gap between the shipped code and the design's claims (security), put a test net under the receiver, and add small user-facing polish. **Encryption is out of scope** — it changes the protocol and gets its own cycle (protocol/arch update → `07-implementation-plan-v0.3-encryption.md` → v0.3). |
 | **Sources** | Post-0.1 backlog (this session); architecture §17 (CSP/egress gates SG-3/SG-4′); `blink-drop-ux-design.md` (receiver stories, US-R2 permission priming); `blink-drop-architecture-update.md` (PWA truth). |
 | **Baseline** | v0.1.0 — sender + PWA receiver live at `grammy.jiang.is/blink-drop/`. Receiver = `web/src/receiver/*` + `src/ui/receiver.ts`; share = `src/receiver/share.ts`; core reused unchanged. |
 

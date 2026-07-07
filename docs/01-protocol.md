@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft v0.1 + envelope amendments (§4.1 — v0.3 encryption, v0.4 Argon2id; §4.2 — v0.7 multi-file) |
 | **Date** | 2026-07-07 |
-| **Depends on** | `00-blueprint.md` (v0.6) — requirements R-SUBSET, R-SELFDESC, R-META, R-INTEGRITY, R-DEDUPE, R-SESSION, R-ADJUST, R-OFFLINE |
+| **Depends on** | `00-blueprint.md` (v0.7) — requirements R-SUBSET, R-SELFDESC, R-META, R-INTEGRITY, R-DEDUPE, R-SESSION, R-ADJUST, R-OFFLINE |
 | **Governs** | `web/` — the sender **and** the PWA receiver (native `ios/` is deferred). This document is the *only* thing the two sides share besides `shared/test-vectors/`. A change here is a change to both. |
 | **Scope** | Defines the bytes on the wire and the rules for producing/consuming them. Does **not** choose UI frameworks, camera APIs, or file-picker mechanics — those are the architecture documents' job. Where this spec says "the library handles X," the specific library is named in §12 and pinned in the architecture docs. |
 
