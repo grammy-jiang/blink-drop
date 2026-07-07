@@ -30,13 +30,15 @@ const passNote = el<HTMLDivElement>("passnote");
 const argonBox = el<HTMLInputElement>("argon");
 const strengthEl = el<HTMLDivElement>("strength");
 const sizeWarnEl = el<HTMLDivElement>("sizewarn");
-const dropzone = el<HTMLDivElement>("dropzone");
+const cautionEl = el<HTMLDivElement>("caution");
+const stageEl = el<HTMLDivElement>("stage");
+const dropzone = el<HTMLElement>("dropzone");
 
 const player = new FramePlayer(canvas, { fps: Number(rate.value), scale: Number(scale.value) });
 let seqLen = 0;
 
 player.onFrame = (info) => {
-  statusEl.textContent = `Playing · cycle ${info.cycles + 1} · frame ${info.index + 1}/${info.total}`;
+  statusEl.textContent = `Playing · loop ${info.cycles + 1}`;
 };
 
 function updateEta(): void {
@@ -44,7 +46,7 @@ function updateEta(): void {
   const eta = Math.ceil(seqLen / player.fps);
   planEl.dataset.eta = String(eta);
   const base = planEl.dataset.base ?? "";
-  planEl.textContent = `${base} · ~${eta}s per pass — keep playing until the phone shows Verified`;
+  planEl.textContent = `${base} · ~${eta}s / loop`;
 }
 
 rate.addEventListener("input", () => {
@@ -65,9 +67,7 @@ stopBtn.addEventListener("click", () => {
 // passphrase itself never leaves this field — it is only fed to buildMessage to
 // derive the key, never stored, never put in the QR or the plan text.
 function updatePassNote(): void {
-  passNote.textContent = passInput.value
-    ? "🔒 Encrypted — the receiver must enter this passphrase. Share it separately (not on screen). The file size and that a transfer happened are still visible."
-    : "";
+  passNote.textContent = passInput.value ? "Share the passphrase separately." : "";
 }
 
 // A rough, library-free strength hint — deliberately honest that it is only a
@@ -86,7 +86,8 @@ function updateStrength(): void {
   const alphabet = [0, 26, 52, 62, 95][classes] ?? 26;
   const bits = pw.length * Math.log2(alphabet);
   const label = bits < 40 ? "weak" : bits < 70 ? "ok" : "strong";
-  strengthEl.textContent = `Strength: ${label} — a rough hint; a captured transfer can be attacked offline, so longer is safer.`;
+  strengthEl.textContent = `Strength: ${label}`;
+  strengthEl.title = "Rough hint. A captured transfer can be attacked offline — longer is safer.";
 }
 
 passInput.addEventListener("input", () => {
@@ -100,6 +101,10 @@ async function processFiles(files: File[]): Promise<void> {
   if (files.length === 0) return;
   const passphrase = passInput.value || undefined;
   const kdf = passphrase && argonBox.checked ? "argon2id" : undefined;
+  // Reveal the playing stage; show the visible-capture caution only for an
+  // unencrypted send (honest exactly when it matters — docs/18 D3).
+  stageEl.hidden = false;
+  cautionEl.textContent = passphrase ? "" : "Visible to anyone who can see the screen.";
   statusEl.textContent = passphrase ? (kdf ? "Encrypting (stronger)…" : "Encrypting…") : "Preparing…";
 
   const inputs: FileInput[] = [];
@@ -151,13 +156,11 @@ dropzone.addEventListener("drop", (e) => {
 
 // Render a static QR of the receiver page URL so the phone can open the PWA by
 // scanning it — no typing a URL on the phone.
-const receiverBox = document.getElementById("receiverqrbox");
 const receiverCanvas = document.getElementById("receiverqr") as HTMLCanvasElement | null;
-if (receiverBox && receiverCanvas) {
+if (receiverCanvas) {
   renderTextToCanvas(new URL("receiver.html", location.href).href, receiverCanvas, { scale: 4, margin: 3 });
   const cap = document.getElementById("receiverqrcap");
-  if (cap) cap.textContent = "Scan to open the receiver on your phone";
-  receiverBox.removeAttribute("hidden");
+  if (cap) cap.textContent = "Open on phone";
 }
 
 // Expose for automated testing / debugging.

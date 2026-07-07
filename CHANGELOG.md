@@ -3,6 +3,31 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.8.0 — 2026-07-08
+
+Sender UI simplification — progressive disclosure + minimal copy.
+
+### Changed
+
+- **Simpler first visit.** The sender now shows only the essentials on load —
+  title, one line (*"Offline. Nothing uploaded."*), the drop zone, and two
+  collapsed toggles (**🔒 Add passphrase** · **📱 Phone link**). Encryption
+  (passphrase / strength / Argon2id), the phone-link QR, and the playback
+  sliders (**Adjust**) are tucked behind native `<details>` and appear only when
+  you want them; the animation + one-line ETA + Stop appear once a file is chosen.
+- **Minimal copy.** Every string trimmed; the encryption caveats and the
+  strength-hint detail were **relocated** into the encryption panel / tooltips,
+  not deleted.
+- **Contextual safety note.** The "visible to anyone who can see the screen"
+  caution left the first screen — it now shows only when a file is sent
+  **without** a passphrase (honest exactly when it matters).
+
+### Notes
+
+- **No feature removed** (everything reachable on demand); no wire, protocol,
+  encryption, or CSP change; no new dependency. **Receiver unchanged.** Plan:
+  `docs/18-implementation-plan-ui-simplification.md`.
+
 ## 0.7.3 — 2026-07-07
 
 Security hardening (external-review response).
@@ -292,6 +317,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.8.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.0
 [0.7.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.3
 [0.7.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.2
 [0.7.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.1
