@@ -3,6 +3,19 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.9.1 — 2026-07-08
+
+Concentrate the page content — title joins the centered group.
+
+### Changed
+
+- **The `Blink-Drop` title moved from a top-left corner header into the
+  vertically-centered content group** on both pages, so the visual elements are
+  grouped together rather than spread across the page (a corner title + centered
+  content read as two separate zones). Applied to the sender and the receiver's
+  Ready screen; both keep their shared, consistent design. Verified on desktop +
+  phone, light + dark.
+
 ## 0.9.0 — 2026-07-08
 
 Unified sender + receiver design (consistent style + dark mode on the sender).
@@ -377,6 +390,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.9.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.1
 [0.9.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.0
 [0.8.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.3
 [0.8.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.2

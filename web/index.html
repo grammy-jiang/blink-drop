@@ -22,8 +22,8 @@
         display: flex;
         flex-direction: column;
       }
-      header { padding: 0.8rem 1rem; font-weight: 600; }
       main { flex: 1; display: flex; }
+      .brand { font-size: 1.25rem; font-weight: 700; margin: 0; }
       /* `margin: auto` centers the content in both axes AND is overflow-safe:
          it collapses to a top-aligned, scrollable layout when the playing stage
          grows taller than the viewport. */
@@ -101,9 +101,9 @@
     </style>
   </head>
   <body>
-    <header>Blink-Drop</header>
     <main>
       <div class="content">
+        <h1 class="brand">Blink-Drop</h1>
         <p class="tagline">Offline. Nothing uploaded.</p>
 
         <label class="dropzone" id="dropzone" for="file">Drop files, or click</label>
