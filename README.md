@@ -38,7 +38,7 @@ keep it playing until the phone shows **Verified**.
 
 ## Status
 
-Shipping — latest **v0.8.0** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
+Shipping — latest **v0.8.1** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
 proven on real iPhone optics and the PWA receiver is device-validated. The
 **native iOS app is deferred** (its toolchain is macOS-only and the developer has
 no Mac); the PWA is the receiver. `docs/ios/*` remain the future-native reference.

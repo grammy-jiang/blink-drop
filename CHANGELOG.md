@@ -3,6 +3,21 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.8.1 — 2026-07-08
+
+Fix a regression in the v0.8.0 simplified sender.
+
+### Fixed
+
+- **Idle screen leaked the playing stage.** The `#stage` block (QR canvas, the
+  "keep playing until Verified" cue, Stop, and the Adjust sliders) was meant to
+  be `hidden` until a file is chosen — but an id-specificity CSS rule
+  (`#stage { display: flex }`) beat the UA `[hidden]` rule, so those controls
+  showed on the first screen. Added `#stage[hidden] { display: none; }`. Caught
+  by driving the shipped v0.8.0 sender in a browser (`evaluate_script`).
+- **Leaner plan line.** The playing summary dropped the byte + frame counts —
+  now just `name · ~Ns / loop`.
+
 ## 0.8.0 — 2026-07-08
 
 Sender UI simplification — progressive disclosure + minimal copy.
@@ -317,6 +332,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.8.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.1
 [0.8.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.0
 [0.7.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.3
 [0.7.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.2
