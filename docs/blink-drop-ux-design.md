@@ -3,6 +3,8 @@
 > **⚠️ Pre-pivot surface note (2026-07-07).** The receiver shipped as an **installable PWA**, not a native iOS app. Read every "iOS Receiver / SwiftUI / AVFoundation / ShareLink / .fileExporter / Xcode" reference below as its **PWA equivalent**: **getUserMedia + jsQR** over HTTPS, **Web Share API + download fallback**, install via the browser. The **state model, journeys, honest-progress, verified-gate, stall guidance, and result card are unchanged** — only the surface and share/export APIs differ. Pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
 >
 > **⚠️ Encryption update (v0.3, 2026-07-07).** Opt-in passphrase encryption **shipped** (DEC-1 reversed). The "no confidentiality in v1 / Future story" notes below (§4 non-goals, §Security summary, US-F1) are **superseded**: the receiver now has a **passphrase-prompt → wrong-passphrase (loud, file withheld) → 🔒 verified** flow, and the sender an optional passphrase field with honest-limits copy. Full UX + design: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md) §7.
+>
+> **⚠️ Resume update (v0.6, 2026-07-07).** The receiver gains a **Resumable** boot state (offer *Resume (X%)* / *Start fresh* when an interrupted transfer was persisted) and a **Resuming** transient (replay saved parts, then scan). The partial is encrypted at rest. Design: [`11-implementation-plan-resume.md`](11-implementation-plan-resume.md).
 
 ## Contents
 
