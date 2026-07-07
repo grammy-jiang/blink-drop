@@ -8,6 +8,8 @@
 | **Governs** | `web/` only. **Must not** reference `ios/`. Shared surface is the protocol + `shared/test-vectors/`. |
 | **Scope** | How the sender is built: stack, modules, data flow, offline packaging, testing. The *wire* is fixed by the protocol doc; this is the *implementation* of the sending half. |
 
+> **⚠️ Note (2026-07-07):** Current sender doc, with drifts fixed inline: the QR library is **`qrcode-generator` (kazuhikoarase)** (nayuki's isn't on npm), and the **receiver is now an installable PWA** (TypeScript, reusing `web/src/core`), not a native `ios/` app — so any "`ios/`" counterpart reference below means the PWA receiver. Also: **bc-ur needs `Buffer` + `process` polyfills** in the browser (a required Vite build step). Pivot delta: [`../blink-drop-architecture-update.md`](../blink-drop-architecture-update.md).
+
 ---
 
 ## 0. Decisions resolved
@@ -17,12 +19,12 @@
 | Stack | UI approach | **Vanilla TypeScript + Vite** (no framework — user-confirmed) |
 | OQ-9 | Offline packaging | **Single self-contained HTML file** (user-confirmed) via `vite-plugin-singlefile` |
 | — | UR/MUR codec | **`@ngraveio/bc-ur`** (npm, TypeScript) — protocol §12 |
-| — | QR generation | **nayuki `qrcodegen`** (TS port, MIT, zero-dep) — explicit version + mode + ECC control |
+| — | QR generation | **`qrcode-generator` (kazuhikoarase)** (TS port, MIT, zero-dep) — explicit version + mode + ECC control |
 | — | Compression | native **`CompressionStream('gzip')`** — protocol §8 |
 | — | Digest | native **WebCrypto `crypto.subtle.digest('SHA-256')`** — protocol §7 |
 | — | Rendering | **`<canvas>`** + `requestAnimationFrame` |
 
-Everything is client-side and dependency-light: bc-ur and qrcodegen are the only runtime libs; gzip and SHA-256 are browser built-ins. This keeps the single-file artifact small and the offline story clean (R-OFFLINE).
+Everything is client-side and dependency-light: bc-ur and qrcode-generator are the only runtime libs; gzip and SHA-256 are browser built-ins. This keeps the single-file artifact small and the offline story clean (R-OFFLINE).
 
 ## 1. Responsibilities
 
@@ -37,7 +39,7 @@ Everything is client-side and dependency-light: bc-ur and qrcodegen are the only
 | Language | TypeScript | Types catch envelope/CBOR field mistakes at compile time; shared vocabulary with the protocol doc |
 | Build/dev | Vite | Fast dev loop; `vite-plugin-singlefile` inlines everything into one `.html` for OQ-9 |
 | UR/MUR | `@ngraveio/bc-ur` | Reference-tested UR codec (protocol §12); provides `UREncoder` with fountain output |
-| QR | nayuki `qrcodegen` | Lets us force alphanumeric mode + version + ECC-L explicitly (protocol §6); no dependency, tiny |
+| QR | `qrcode-generator` (kazuhikoarase) | Lets us force alphanumeric mode + version + ECC-L explicitly (protocol §6); no dependency, tiny |
 | Compress | `CompressionStream` | Native gzip, zero dependency (protocol §8) |
 | Digest | WebCrypto | Native SHA-256, zero dependency (protocol §7) |
 | Render | Canvas 2D | Direct pixel control for QR modules; cheap `requestAnimationFrame` loop |
@@ -46,7 +48,7 @@ Exact versions are pinned in `web/package.json` at implementation time (lockfile
 
 ## 3. Module map
 
-Deliberately split so the **protocol-facing core is pure and reused by the M0 web-receiver prototype** (`04-roadmap.md`). The core mirrors, concept-for-concept, what `ios/` implements in Swift — same protocol, two languages.
+Deliberately split so the **protocol-facing core is pure and reused by the PWA receiver** unchanged. In v0.1 the receiver is a TypeScript PWA that links the *same* `web/src/core` (one language, one core); a future native receiver would mirror it in Swift.
 
 ```
 web/
@@ -59,7 +61,7 @@ web/
 │   │   ├── gzip.ts           #   CompressionStream wrappers (compress / bounded-decompress, protocol §9)
 │   │   └── types.ts          #   Header, Message, protocol constants (keys, compression enum)
 │   ├── qr/
-│   │   └── render.ts         #   UR string → uppercase → qrcodegen(alphanumeric, version, ECC-L) → canvas
+│   │   └── render.ts         #   UR string → uppercase → qrcode-generator(alphanumeric, version, ECC-L) → canvas
 │   ├── player/
 │   │   ├── sequencer.ts      #   drive UREncoder; precompute the frame set (Prepared state, L5)
 │   │   └── loop.ts           #   rAF loop at {rate, scale}; cycle counter; pause/resume (R-ADJUST)
@@ -96,7 +98,7 @@ web/
 
 ## 5. Offline packaging (OQ-9, R-OFFLINE)
 
-- `vite build` + `vite-plugin-singlefile` → **one `blink-drop.html`** with all JS/CSS inlined (bc-ur + qrcodegen bundled, no external requests).
+- `vite build` + `vite-plugin-singlefile` → **one `blink-drop.html`** with all JS/CSS inlined (bc-ur + qrcode-generator bundled, no external requests).
 - Ship it as a build artifact the user saves and copies to any machine — including a cold air-gapped one (U1). Open in any modern browser; it runs with the network cable unplugged.
 - **CSP** meta tag forbids any external origin and `connect-src 'none'` — makes "the file never leaves the machine" enforceable, not just promised. (Blueprint privacy claim → mechanically true.)
 
@@ -111,7 +113,7 @@ Fragment size (→ symbol version) is chosen once at `Loaded` from the seed defa
 ## 7. Precompute strategy (L5) & fountain budget
 
 - Systematic parts (`seqNum 1..seqLen`) are finite and precomputed to QR images at `Prepared`.
-- Fountain parts (`seqNum > seqLen`) are an endless supply; precompute a **fixed redundancy set** (e.g. `ceil(0.3 × seqLen)` extra) so the loop is a stable, seamless cycle rather than computing QR on every frame. If profiling shows headroom, generate fountain frames lazily within the frame budget (≤ `1/rate` seconds) instead — decided at implementation against the real bc-ur + qrcodegen cost.
+- Fountain parts (`seqNum > seqLen`) are an endless supply; precompute a **fixed redundancy set** (e.g. `ceil(0.3 × seqLen)` extra) so the loop is a stable, seamless cycle rather than computing QR on every frame. If profiling shows headroom, generate fountain frames lazily within the frame budget (≤ `1/rate` seconds) instead — decided at implementation against the real bc-ur + qrcode-generator cost.
 
 ## 8. Security / privacy (blueprint Risk 4/7, protocol §11)
 
@@ -127,6 +129,6 @@ Fragment size (→ symbol version) is chosen once at `Loaded` from the seed defa
 
 ## 10. Handoff
 
-- Pin `@ngraveio/bc-ur` and `qrcodegen` versions in `web/package.json` (lockfile committed) at first implementation.
+- Pin `@ngraveio/bc-ur` and `qrcode-generator` versions in `web/package.json` (lockfile committed) at first implementation.
 - The **sweep harness** (`04-roadmap.md`, OQ-4) drives `player/` headlessly across rate × fragment-size to tune the seed defaults.
 - `core/` is the shared, protocol-bound module — treat changes to it as protocol-adjacent (re-run vectors on both sides).

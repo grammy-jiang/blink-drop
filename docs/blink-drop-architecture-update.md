@@ -91,6 +91,8 @@ offline story, Web Share fidelity) — §11.
 
 ## 5. Patch Manifest
 
+> **Scope of this amendment (2026-07-07):** the base design's top banner declares the pivot **holistic** — *every* native-iOS receiver detail in the base is superseded, not only the rows listed here. This manifest names the load-bearing sections; residual native content elsewhere in the base (§1, §3, §5, §6, §8, §13.4, §15–§16, §25–§27) is likewise superseded, and a future `materialize` should patch it. (P-3 below patches the §7 receiver **rows**, plural.)
+
 Each row patches the correspondingly-numbered base-design section. Change types:
 **REPLACE** (supersede content), **AMEND** (add/adjust), **UNCHANGED** (listed
 for cross-reference).

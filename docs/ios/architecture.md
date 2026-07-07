@@ -1,5 +1,7 @@
 # Blink-Drop — iOS Receiver Architecture
 
+> **⚠️ Status: DEFERRED (2026-07-07).** The v0.1 receiver shipped as an **installable PWA**, not a native iOS app — native iOS needs a Mac, which the developer lacks. This document is the **future-native reference** (valid if/when a Mac is available); it is **not** the current build. ADR-0006 is superseded by **ADR-0009**; see [`../blink-drop-architecture-update.md`](../blink-drop-architecture-update.md).
+
 | | |
 |---|---|
 | **Status** | Draft v0.1 |

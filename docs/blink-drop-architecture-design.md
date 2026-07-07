@@ -1,5 +1,7 @@
 # Blink-Drop — Architecture Design
 
+> **⚠️ Amended by [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md) (update-1, 2026-07-07).** The receiver **pivoted from a native iOS app to an installable PWA** (the developer has no Mac). Read this base design **as patched by that note** — treat *every* native-iOS receiver detail below (SwiftUI / AVFoundation / URKit / AVCaptureMetadataOutput / ShareLink / Xcode / ADR-0006) as **superseded** (ADR-0006 → ADR-0009). The sender, protocol, `web/src/core`, and test vectors are unchanged. Note also: the sender's QR-generation library is **`qrcode-generator` (kazuhikoarase)**, not the nayuki library named elsewhere in this base (nayuki's is not published to npm).
+
 ## Contents
 
 1. [Executive Architecture Summary](#1-executive-architecture-summary)
@@ -157,7 +159,7 @@ Operating mode is **hybrid**, but every high-impact decision was resolved *befor
 | A-1 | Prior-art optical envelope (~1 KB/frame pre-Bytewords, ~10 fps) transfers to the target device | yes | Sweep harness results (roadmap M3) |
 | A-2 | `AVCaptureMetadataOutput` sustains enough distinct-frame throughput at ~8–10 fps | yes | On-device M1 testing → Vision fallback (OQ-A) |
 | A-3 | One cooperating human per side can exchange the spoken cues that close the one-way loop | yes | If an unattended-receiver need appears |
-| A-4 | Single-file HTML (bc-ur + qrcodegen inlined) stays within practical browser limits | yes | Build size review at M4 |
+| A-4 | Single-file HTML (bc-ur + qrcode-generator inlined) stays within practical browser limits | yes | Build size review at M4 |
 | A-5 | gzip via native APIs is available and adequate on both platforms | yes | If a platform lacks it, bundle a codec (rejected default) |
 
 ---
@@ -184,7 +186,7 @@ Operating mode is **hybrid**, but every high-impact decision was resolved *befor
 |----------------|-------|-------|
 | Compression / decompression | Traditional (native gzip) | Deterministic |
 | Partitioning + fountain coding | Traditional (UR/MUR library) | Deterministic given seed |
-| QR render / decode | Traditional (qrcodegen / AVFoundation) | Deterministic |
+| QR render / decode | Traditional (qrcode-generator / AVFoundation) | Deterministic |
 | Integrity verification | Traditional (SHA-256) | Cryptographic gate |
 | State transitions | Traditional (view-model / UI state) | §14 |
 | File export | Traditional (iOS share sheet) | OS-provided |
@@ -203,7 +205,7 @@ Per the pipeline discipline, `design` records the stack as **provisional**; here
 | Stream codec | UR/MUR (URKit, @ngraveio/bc-ur) | Custom fountain (LT/Raptor) + custom frame | Reference-tested both platforms; skips hardest code; wallet-proven | Bytewords 2× tax (W1); library API constraints | Medium (isolated behind `Core` seam) |
 | Web language/build | TypeScript + Vite | Svelte/React; plain JS | Single-purpose app needs no framework; Vite → single-file offline | Minimal | High |
 | Web offline packaging | `vite-plugin-singlefile` | PWA; multi-file | Cold air-gapped machine (U1) | Inline size (A-4) | High |
-| Web QR gen | nayuki `qrcodegen` | `qrcode` npm; qrcode-generator | Explicit alphanumeric+version+ECC-L control (protocol §6) | None material | High |
+| Web QR gen | `qrcode-generator` (kazuhikoarase) | `qrcode` npm; qrcode-generator | Explicit alphanumeric+version+ECC-L control (protocol §6) | None material | High |
 | Web compress / digest | native `CompressionStream` / WebCrypto | bundled zlib/js-sha256 | Zero-dependency; clean single-file | Older-browser support | High |
 | iOS UI | SwiftUI | UIKit | Least boilerplate for a first iOS app; `ShareLink`, `@Observable` (iOS 17) | Newer API surface | Medium |
 | iOS min OS | iOS 17 | 16 / latest | Ergonomics + headroom; device runs latest | Excludes <17 (irrelevant personal use) | Medium |
@@ -548,7 +550,7 @@ No servers, no cloud, no CI/CD-to-production. "Deployment" = producing two clien
 
 **ADR-0004 — No AI components.** *Status:* accepted. *Decision:* pure deterministic software; no LLM/agent/MCP. *Why:* every task here is deterministic (compress/frame/render/decode/verify). *Consequences:* §6/§11 closed; no model-safety surface.
 
-**ADR-0005 — Web stack: vanilla TS + Vite + single-file offline.** *Status:* accepted (user-confirmed). *Decision:* no framework; `vite-plugin-singlefile`; qrcodegen; native `CompressionStream`/WebCrypto. *Why:* single-purpose app; cleanest offline artifact; fewest deps. *Consequences:* hand-rolled minimal UI state (acceptable at this size). *Alternatives:* Svelte/React (rejected: unneeded machinery, fiddlier single-file).
+**ADR-0005 — Web stack: vanilla TS + Vite + single-file offline.** *Status:* accepted (user-confirmed). *Decision:* no framework; `vite-plugin-singlefile`; qrcode-generator; native `CompressionStream`/WebCrypto. *Why:* single-purpose app; cleanest offline artifact; fewest deps. *Consequences:* hand-rolled minimal UI state (acceptable at this size). *Alternatives:* Svelte/React (rejected: unneeded machinery, fiddlier single-file).
 
 **ADR-0006 — iOS stack: SwiftUI + iOS 17 + URKit + AVCaptureMetadataOutput.** *Status:* accepted (UI/OS user-accepted-default; capture provisional). *Decision:* SwiftUI; iOS 17 floor; URKit via SPM; AVCaptureMetadataOutput for real-time string decode, Vision fallback. *Why:* least boilerplate for a first iOS app; native string decode fits UR (text). *Consequences:* capture throughput risk (W2/OQ-A) with a documented fallback. *Alternatives:* UIKit (more boilerplate); Vision-first (more CPU up front).
 
@@ -624,7 +626,7 @@ Consumes the blueprint's **Recommended Next Stages**.
 | OQ-A | Does `AVCaptureMetadataOutput` sustain enough *distinct*-frame throughput at ~8–10 fps, or is the Vision fallback needed? | implementation (M1 on-device) | W2/R-3; fallback already designed (§18) |
 | OQ-B | Final `maxFragmentLen` / rate defaults | sweep harness (M3) | Protocol §6 seed values pending measurement (A-1) |
 | OQ-C | Register the `blink-drop` UR type with Blockchain Commons? | later / optional | Functional without it (protocol §5); courtesy for interop |
-| OQ-D | Single-file HTML size with bc-ur + qrcodegen inlined — within comfortable limits? | M4 build review | A-4 |
+| OQ-D | Single-file HTML size with bc-ur + qrcode-generator inlined — within comfortable limits? | M4 build review | A-4 |
 
 None blocks the ux-design stage.
 

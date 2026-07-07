@@ -1,5 +1,7 @@
 # Blink-Drop — Roadmap
 
+> **⚠️ Superseded (2026-07-07).** This roadmap predates the PWA pivot. What actually shipped: **M0 proven**, then **MVP-1 = the PWA receiver, released as v0.1.0** — the M0 browser receiver was **promoted to the product**, not discarded. The **native-iOS milestones (M1–M4) below are deferred** (no Mac). Current build plan: [`05-implementation-plan.md`](05-implementation-plan.md); pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
+
 | | |
 |---|---|
 | **Status** | Draft v0.1 |
@@ -36,7 +38,7 @@ A cross-cutting task, **test vectors**, is produced up front because both sides 
 - **Receiver (throwaway):** a browser page using `getUserMedia` + `@ngraveio/bc-ur` + a JS QR reader (`BarcodeDetector` where available, else a JS decoder), reusing `web/src/core/` **unchanged** (the decode path).
 - Run it screen-to-webcam, and screen-to-phone-browser, with a real file.
 - **Acceptance:** a real file transfers and SHA-256-verifies (S2 in spirit); mid-loop join works (**S4**); with ~20% frames dropped, time inflates ≤1.5× (**S3**); rough throughput lands in the protocol §6 band.
-- **Exit:** protocol validated on real optics; `web/src/core/` proven both directions; ballpark params for the sweep. The receiver page is then **discarded** (it is not a shipped surface — blueprint §9).
+- **Exit:** protocol validated on real optics; `web/src/core/` proven both directions; ballpark params for the sweep. *(Superseded outcome:* the receiver page was **promoted to the product** — it became the shipped PWA receiver in v0.1.0, not discarded, because the native app was deferred.*)*
 
 ## Design gate — ux-design → implementation-plan *(between M0 and M1)*
 
@@ -94,7 +96,7 @@ Every criterion is claimed by at least one milestone; none is left to chance.
 
 ## Explicitly deferred (v1.1+ backlog)
 
-Per blueprint §9 / DEC-1: passphrase **encryption** (top item; slots into `core/` between file and gzip, protocol §11), PWA packaging, resume-across-restart, multi-file, Android receiver, App Store distribution. None gates v1.
+Per blueprint §9 / DEC-1: passphrase **encryption** (top item; slots into `core/` between file and gzip, protocol §11), the **native iOS app** (deferred — needs a Mac), resume-across-restart, multi-file, Android receiver. None gates v1. *(Note: PWA packaging is **not** deferred — it shipped in v0.1.0.)*
 
 ## Status of gates already passed
 
