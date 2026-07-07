@@ -38,6 +38,8 @@ import {
   HeaderKey,
   KDF_ARGON2ID,
   KDF_PBKDF2_SHA256,
+  MAX_ARGON2,
+  MAX_PBKDF2_ITERATIONS,
   OuterKey,
   PBKDF2_ITERATIONS,
   SALT_BYTES,
@@ -264,6 +266,13 @@ async function openEncrypted(
   return { header: readHeader(metaMap), payload };
 }
 
+// A plain integer within [min, max]. The CBOR decoder only emits non-negative
+// integers, so this is primarily a bound (with defense-in-depth vs degenerate
+// values). Used to reject a hostile KDF cost factor (KDF bomb).
+function boundedInt(v: CborValue | undefined, min: number, max: number): v is number {
+  return typeof v === "number" && Number.isInteger(v) && v >= min && v <= max;
+}
+
 // Derive the AES key for whichever KDF the envelope names. `work` is EncKey.iter:
 // a uint (PBKDF2 iterations) or an { m, t, p } map (Argon2id cost params). An
 // unknown kdf fails closed — a build without Argon2 support never mis-accepts.
@@ -274,7 +283,11 @@ async function deriveKeyForKdf(
   salt: Uint8Array,
 ): Promise<CryptoKey> {
   if (kdf === KDF_PBKDF2_SHA256) {
-    if (typeof work !== "number" || work <= 0) throw new MalformedMessageError("invalid kdf iterations");
+    // Bounded: an unbounded iteration count is a KDF bomb — derivation runs
+    // (unconditionally) BEFORE the AEAD tag check, so a huge count DoSes here.
+    if (!boundedInt(work, 1, MAX_PBKDF2_ITERATIONS)) {
+      throw new MalformedMessageError("invalid or excessive PBKDF2 iterations");
+    }
     return deriveKey(passphrase, salt, work);
   }
   if (kdf === KDF_ARGON2ID) {
@@ -282,8 +295,8 @@ async function deriveKeyForKdf(
     const m = work.get(ArgonKey.m);
     const t = work.get(ArgonKey.t);
     const p = work.get(ArgonKey.p);
-    if (typeof m !== "number" || typeof t !== "number" || typeof p !== "number") {
-      throw new MalformedMessageError("invalid argon2 params");
+    if (!boundedInt(m, 1, MAX_ARGON2.m) || !boundedInt(t, 1, MAX_ARGON2.t) || !boundedInt(p, 1, MAX_ARGON2.p)) {
+      throw new MalformedMessageError("invalid or excessive argon2 params");
     }
     return deriveKeyArgon2(passphrase, salt, { m, t, p });
   }

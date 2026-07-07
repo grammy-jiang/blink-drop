@@ -3,6 +3,23 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.6.2 — 2026-07-07
+
+### Security
+
+- **Bounded two receiver DoS vectors** found in a multi-agent security audit
+  ([`docs/12-security-audit-v0.6.md`](docs/12-security-audit-v0.6.md)). Both were
+  hostile-input → resource-exhaustion, reachable from a single crafted/injected QR
+  frame, and availability-only (no confidentiality/integrity impact):
+  - **KDF bomb** — an encrypted envelope's KDF cost (PBKDF2 iterations / Argon2
+    m,t,p) is now clamped *before* key derivation (which runs before the auth tag
+    check), so a huge value can't peg a CPU core or OOM the tab.
+  - **UR seqLength bomb** — a crafted part declaring a huge fountain part-count is
+    dropped at the assembler boundary before bc-ur allocates `new Array(seqLength)`.
+- No protocol/wire change. The audit found **no critical/high** issues; the crypto
+  construction, CBOR strictness, XSS-safety, and at-rest key handling were all
+  verified sound.
+
 ## 0.6.1 — 2026-07-07
 
 ### Fixed
@@ -180,6 +197,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.6.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.2
 [0.6.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.1
 [0.6.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.0
 [0.5.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.5.0
