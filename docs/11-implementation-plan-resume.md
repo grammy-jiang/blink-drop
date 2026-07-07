@@ -1,10 +1,12 @@
-# Blink-Drop — Implementation Plan (v1.1: Resume across restart)
+# Blink-Drop — Implementation Plan (Resume across restart — shipped v0.6.0)
+
+> **✅ Shipped as v0.6.0 (2026-07-07).** This plan was drafted targeting a "v1.1.0" before the release train was renumbered; resume actually shipped in **v0.6.0** (`CHANGELOG.md`, `04-roadmap.md`, `blink-drop-architecture-update.md` update-4). Read every "v1.1.0" / "v1.1" / "1.0.0-or-1.1.0" reference below as **v0.6.0** — they are pre-ship planning notes, not the shipped version.
 
 | | |
 |---|---|
-| **Status** | Draft v0.1 — **for review before implementation** |
+| **Status** | **Shipped v0.6.0** (drafted 2026-07-07) |
 | **Date** | 2026-07-07 |
-| **Target release** | **v1.1.0** (receiver feature) |
+| **Target release** | **v0.6.0** (receiver feature; shipped) |
 | **Scope** | Let the **receiver** resume an interrupted scan instead of starting over — persist the partial fountain assembly and continue it on reopen. Receiver-only; **no protocol/wire/encryption change**. |
 | **Sources** | `01-protocol.md` §5 (session binding via CRC-32 checksum; dedupe), `web/src/core/ur.ts` (`Assembler` = bc-ur `URDecoder`), `web/src/ui/receiver.ts` (scan loop, state model §14). |
 
@@ -46,14 +48,14 @@ Today an interrupted scan (app backgrounded, tab closed, phone locked) loses all
 3. **T3 — resume UX:** the Ready-with-resume screen (Resume / Start fresh); replay-then-scan on Resume; a *Resuming…* note; clear on success/Start-over.
 4. **T4 — privacy copy:** one honest line where relevant (e.g. Start-fresh clears the saved partial; encrypted partials are ciphertext, plaintext ones are file data kept briefly on this device).
 5. **T5 — tests + browser:** unit (storage) + browser drive (partial scan → reload → Resume → completes; Start fresh → 0%).
-6. **T6 — docs:** receiver architecture note + `blink-drop-ux-design` state addition (Resumable/Resuming) + CHANGELOG; bump to v1.1.0. No security-review re-run needed (no wire change), but §17 gains a **data-at-rest** note (D5).
+6. **T6 — docs:** receiver architecture note + `blink-drop-ux-design` state addition (Resumable/Resuming) + CHANGELOG; bump to v0.6.0. No security-review re-run needed (no wire change), but §17 gains a **data-at-rest** note (D5).
 7. **T7 — on-device** (user): background the receiver mid-scan, reopen, Resume.
 
 ## 5. Out of scope
 - Any protocol/wire/encryption change. Multi-file. Cross-device resume. Persisting the *sender* side (it has nothing to resume — it just loops).
 - Resuming across a *different* transfer (single slot; a new transfer offered Start-fresh replaces it).
 
-## 6. Release checklist (v1.1.0)
+## 6. Release checklist (v0.6.0)
 1. Branch `feat/v1.1-resume` → T1–T6 → PR (CI green) → merge.
 2. Regression: biome, tsc, tests (+ storage tests), PWA + single-file sender builds.
 3. Bump `web` → 1.0.0? — **see note.** If v1.0.0 (feature-complete milestone) is cut first, this is 1.1.0; otherwise this itself could be the 1.0.0 line. Decide at release.
