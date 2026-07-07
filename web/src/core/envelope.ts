@@ -30,6 +30,7 @@ import {
   type CompressionValue,
   type DecodedFile,
   ENVELOPE_VERSION_ENCRYPTED,
+  ENVELOPE_VERSION_MULTIFILE,
   EncKey,
   type FileInput,
   GCM_NONCE_BYTES,
@@ -39,7 +40,9 @@ import {
   KDF_ARGON2ID,
   KDF_PBKDF2_SHA256,
   MAX_ARGON2,
+  MAX_FILE_COUNT,
   MAX_PBKDF2_ITERATIONS,
+  MAX_TOTAL_DECOMPRESSED_BYTES,
   OuterKey,
   PBKDF2_ITERATIONS,
   SALT_BYTES,
@@ -78,15 +81,15 @@ export interface BuildOptions {
   argon?: Argon2Params; // argon2id cost params
 }
 
-export async function buildMessage(input: FileInput, opts: BuildOptions = {}): Promise<Uint8Array> {
+// One file's [meta, payload] pair — the single-file message body, reused as each
+// entry of a multi-file message.
+async function buildFileBody(input: FileInput): Promise<[CborMap, Uint8Array]> {
   const digest = await sha256(input.bytes);
   const compressed = await gzip(input.bytes);
-
   // Store uncompressed when gzip does not actually shrink it (protocol §8).
   const useGzip = compressed.length < input.bytes.length;
   const payload = useGzip ? compressed : input.bytes;
   const compression: CompressionValue = useGzip ? Compression.gzip : Compression.none;
-
   const meta: CborMap = new Map<number, CborValue>([
     [HeaderKey.name, input.name],
     [HeaderKey.mediaType, input.mediaType],
@@ -94,31 +97,52 @@ export async function buildMessage(input: FileInput, opts: BuildOptions = {}): P
     [HeaderKey.sha256, digest],
     [HeaderKey.compression, compression],
   ]);
+  return [meta, payload];
+}
 
-  if (!opts.passphrase) {
-    return cborEncode([meta, payload]);
-  }
-
-  // Encrypted: seal [meta, payload] under a passphrase-derived key.
-  const inner = cborEncode([meta, payload]);
+// Seal an inner message (single [meta,payload] or multi [manifest,[…]]) under a
+// passphrase-derived key → the encrypted envelope [outer, ciphertext]. The inner
+// shape is opaque to this — encryption wraps single and multi-file identically.
+async function encryptInner(inner: Uint8Array, opts: BuildOptions): Promise<Uint8Array> {
   const salt = opts.salt ?? randomBytes(SALT_BYTES);
   const nonce = opts.nonce ?? randomBytes(GCM_NONCE_BYTES);
+  const passphrase = opts.passphrase as string;
 
   let outer: CborMap;
   let key: CryptoKey;
   if ((opts.kdf ?? KDF_PBKDF2_SHA256) === KDF_ARGON2ID) {
     const argon = opts.argon ?? ARGON2_DEFAULTS;
     outer = buildOuterArgon2(salt, nonce, argon);
-    key = await deriveKeyArgon2(opts.passphrase, salt, argon);
+    key = await deriveKeyArgon2(passphrase, salt, argon);
   } else {
     const iterations = opts.iterations ?? PBKDF2_ITERATIONS;
     outer = buildOuterPbkdf2(salt, nonce, iterations);
-    key = await deriveKey(opts.passphrase, salt, iterations);
+    key = await deriveKey(passphrase, salt, iterations);
   }
 
   const aad = cborEncode(outer); // deterministic (canonical CBOR) → reproducible on decrypt
   const ciphertext = await aesGcmEncrypt(key, nonce, inner, aad);
   return cborEncode([outer, ciphertext]);
+}
+
+export async function buildMessage(input: FileInput, opts: BuildOptions = {}): Promise<Uint8Array> {
+  const [meta, payload] = await buildFileBody(input);
+  const inner = cborEncode([meta, payload]);
+  return opts.passphrase ? encryptInner(inner, opts) : inner;
+}
+
+// Multi-file (protocol §4.2, docs/13): 1 input → the single-file envelope
+// (byte-for-byte unchanged); ≥ 2 → [ manifest{0:2}, [ [meta,payload]… ] ].
+// Encryption wraps the whole set (and hides the individual file names).
+export async function buildFilesMessage(inputs: FileInput[], opts: BuildOptions = {}): Promise<Uint8Array> {
+  if (inputs.length === 0) throw new Error("buildFilesMessage requires at least one file");
+  if (inputs.length === 1) return buildMessage(inputs[0]!, opts);
+  if (inputs.length > MAX_FILE_COUNT) throw new Error(`too many files (max ${MAX_FILE_COUNT})`);
+
+  const bodies = await Promise.all(inputs.map(buildFileBody));
+  const manifest: CborMap = new Map<number, CborValue>([[OuterKey.version, ENVELOPE_VERSION_MULTIFILE]]);
+  const inner = cborEncode([manifest, bodies.map(([meta, payload]) => [meta, payload] as CborValue)]);
+  return opts.passphrase ? encryptInner(inner, opts) : inner;
 }
 
 function buildOuter(enc: CborMap): CborMap {
@@ -175,6 +199,23 @@ function decodeMessageArray(message: Uint8Array): [CborMap, Uint8Array] {
   return [first, second];
 }
 
+// Loose top-level decode: [ map, X ] where X is bytes (single / encrypted) OR an
+// array (the multi-file payload list). The caller dispatches on the map's key 0.
+function decodeBodyArray(bytes: Uint8Array): [CborMap, CborValue] {
+  let decoded: CborValue;
+  try {
+    decoded = cborDecode(bytes);
+  } catch (e) {
+    throw new MalformedMessageError(`message is not valid CBOR: ${(e as Error).message}`);
+  }
+  if (!Array.isArray(decoded) || decoded.length !== 2) {
+    throw new MalformedMessageError("message must be a 2-element CBOR array");
+  }
+  const [first, second] = decoded;
+  if (!(first instanceof Map)) throw new MalformedMessageError("first message element must be a CBOR map");
+  return [first, second as CborValue]; // length === 2 checked above → defined
+}
+
 // True when the message is an encrypted envelope. Lets the receiver prompt for a
 // passphrase before attempting to open it. Never throws.
 export function isEncryptedMessage(message: Uint8Array): boolean {
@@ -222,14 +263,14 @@ function expect<K extends Kind>(map: CborMap, key: number, kind: K, label: strin
   throw new MalformedMessageError(`header field ${label} has the wrong type`);
 }
 
-// Decrypt an encrypted envelope → the inner header + payload. Throws
-// PassphraseRequiredError when none was supplied, and WrongPassphraseError
-// (from crypto.ts) when the AEAD tag fails.
-async function openEncrypted(
+// Decrypt an encrypted envelope → the inner MESSAGE BYTES (single or multi-file;
+// the shape is decided by the caller). Throws PassphraseRequiredError when none
+// was supplied, and WrongPassphraseError (from crypto.ts) when the AEAD tag fails.
+async function decryptInner(
   outer: CborMap,
   ciphertext: Uint8Array,
   passphrase: string | undefined,
-): Promise<{ header: Header; payload: Uint8Array }> {
+): Promise<Uint8Array> {
   if (passphrase === undefined || passphrase === "") {
     throw new PassphraseRequiredError("this transfer is encrypted; a passphrase is required");
   }
@@ -249,21 +290,17 @@ async function openEncrypted(
 
   const key = await deriveKeyForKdf(params.get(EncKey.kdf), params.get(EncKey.iter), passphrase, salt);
   const aad = cborEncode(outer);
-  const inner = await aesGcmDecrypt(key, nonce, ciphertext, aad); // WrongPassphraseError on tag failure
+  return aesGcmDecrypt(key, nonce, ciphertext, aad); // WrongPassphraseError on tag failure
+}
 
-  let decoded: CborValue;
-  try {
-    decoded = cborDecode(inner);
-  } catch (e) {
-    throw new MalformedMessageError(`decrypted inner is not valid CBOR: ${(e as Error).message}`);
+// A single-file body `[meta, payload]` → header + payload. Rejects a multi-file
+// body — a caller on the single-file API must switch to openFilesMessage.
+function readSingleBody(first: CborMap, second: CborValue): { header: Header; payload: Uint8Array } {
+  if (first.get(OuterKey.version) === ENVELOPE_VERSION_MULTIFILE) {
+    throw new MalformedMessageError("multi-file message; use openFilesMessage");
   }
-  if (!Array.isArray(decoded) || decoded.length !== 2) {
-    throw new MalformedMessageError("decrypted inner must be a 2-element [meta, payload] array");
-  }
-  const [metaMap, payload] = decoded;
-  if (!(metaMap instanceof Map)) throw new MalformedMessageError("inner meta must be a CBOR map");
-  if (!(payload instanceof Uint8Array)) throw new MalformedMessageError("inner payload must be a CBOR byte string");
-  return { header: readHeader(metaMap), payload };
+  if (!(second instanceof Uint8Array)) throw new MalformedMessageError("payload must be a CBOR byte string");
+  return { header: readHeader(first), payload: second };
 }
 
 // A plain integer within [min, max]. The CBOR decoder only emits non-negative
@@ -304,18 +341,58 @@ async function deriveKeyForKdf(
 }
 
 export async function openMessage(message: Uint8Array, opts: OpenOptions = {}): Promise<DecodedFile> {
-  const [first, second] = decodeMessageArray(message);
-
-  let header: Header;
-  let payload: Uint8Array;
-  if (first.get(OuterKey.version) !== undefined) {
-    ({ header, payload } = await openEncrypted(first, second, opts.passphrase));
-  } else {
-    header = readHeader(first);
-    payload = second;
+  const [first, second] = decodeBodyArray(message);
+  if (first.get(OuterKey.version) === ENVELOPE_VERSION_ENCRYPTED) {
+    if (!(second instanceof Uint8Array)) throw new MalformedMessageError("ciphertext must be a CBOR byte string");
+    const inner = await decryptInner(first, second, opts.passphrase);
+    const [f, s] = decodeBodyArray(inner);
+    const body = readSingleBody(f, s);
+    return finishOpen(body.header, body.payload);
   }
+  const body = readSingleBody(first, second);
+  return finishOpen(body.header, body.payload);
+}
 
-  return finishOpen(header, payload);
+// Multi-file-aware open: returns ALL files (single → length 1, multi → N), each
+// SHA-256-verified, with a per-file bomb bound + a total-decompressed cap.
+export async function openFilesMessage(message: Uint8Array, opts: OpenOptions = {}): Promise<DecodedFile[]> {
+  const [first, second] = decodeBodyArray(message);
+  if (first.get(OuterKey.version) === ENVELOPE_VERSION_ENCRYPTED) {
+    if (!(second instanceof Uint8Array)) throw new MalformedMessageError("ciphertext must be a CBOR byte string");
+    const inner = await decryptInner(first, second, opts.passphrase);
+    return decodeFilesFromBody(inner);
+  }
+  return decodeFilesFromBody(message);
+}
+
+// Dispatch a (decrypted) body to one or more verified files.
+async function decodeFilesFromBody(bytes: Uint8Array): Promise<DecodedFile[]> {
+  const [first, second] = decodeBodyArray(bytes);
+  if (first.get(OuterKey.version) === ENVELOPE_VERSION_MULTIFILE) {
+    if (!Array.isArray(second)) throw new MalformedMessageError("multi-file body must be a payload list");
+    if (second.length < 1 || second.length > MAX_FILE_COUNT) {
+      throw new MalformedMessageError("invalid multi-file count");
+    }
+    const files: DecodedFile[] = [];
+    let total = 0;
+    for (const entry of second) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new MalformedMessageError("multi-file entry must be a 2-element [meta, payload]");
+      }
+      const [metaMap, payload] = entry;
+      if (!(metaMap instanceof Map)) throw new MalformedMessageError("multi-file meta must be a CBOR map");
+      if (!(payload instanceof Uint8Array)) throw new MalformedMessageError("multi-file payload must be a byte string");
+      const header = readHeader(metaMap);
+      total += header.origSize;
+      if (total > MAX_TOTAL_DECOMPRESSED_BYTES) {
+        throw new MalformedMessageError("multi-file total exceeds the hard ceiling");
+      }
+      files.push(await finishOpen(header, payload));
+    }
+    return files;
+  }
+  const single = readSingleBody(first, second);
+  return [await finishOpen(single.header, single.payload)];
 }
 
 // The two mandatory gates, shared by the plaintext and decrypted paths: bounded
