@@ -3,6 +3,26 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.7.2 — 2026-07-07
+
+Accessibility + SEO quality pass.
+
+### Fixed
+
+- **Accessibility 98 → 100, SEO 91 → 100** (Lighthouse, mobile). Added a `<main>`
+  landmark and a `<meta name="description">` to both the sender and receiver
+  pages. No behavior, wire, or script change — HTML `<head>` + one landmark only.
+
+### Notes
+
+- First Lighthouse audit of the live PWA. The remaining "Best Practices"
+  deductions are **environmental, not app code**: browser extensions using
+  deprecated APIs, and Cloudflare's edge-injected analytics beacon — which the
+  app's `script-src 'self'` CSP **correctly blocks** (no-egress by design; the
+  console error is that policy working). Optional: turn off Cloudflare Web
+  Analytics auto-injection to clear those entries on the live site. Findings:
+  `docs/15-implementation-plan-quality-pass.md`.
+
 ## 0.7.1 — 2026-07-07
 
 Reliable multi-file delivery on iOS.
@@ -238,6 +258,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.7.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.2
 [0.7.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.1
 [0.7.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.0
 [0.6.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.2

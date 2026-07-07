@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Turn a file into an animated QR code stream to send it to a nearby phone — processed on your machine, never uploaded. Fully offline."
+    />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='17' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='9' y='17' width='6' height='6' fill='%23f9fafb'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%232563eb'/%3E%3C/svg%3E" />
     <title>Blink-Drop — Sender</title>
     <style>
@@ -27,6 +31,7 @@
     </style>
   </head>
   <body>
+    <main>
     <h1>Blink-Drop — Sender</h1>
     <div id="receiverqrbox" hidden>
       <canvas id="receiverqr" width="10" height="10"></canvas>
@@ -52,6 +57,7 @@
     </div>
     <canvas id="qr" width="10" height="10"></canvas>
     <div id="status"></div>
+    </main>
     <script type="module" src="/src/ui/sender.ts"></script>
   </body>
 </html>
