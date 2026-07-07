@@ -106,7 +106,7 @@ Notes:
 
 **Metadata availability (reconciliation with blueprint §6.2).** A single fragment is raw message bytes and is *not* independently CBOR-decodable, so `name`/`media_type` become readable only once the whole message assembles. However, `messageLen` (≈ compressed size) is in *every* part, so the receiver shows a **real byte-size and progress denominator from the first captured part**; the **filename/type appear at reassembly**. Blueprint §6.2's "file name … appear immediately" should be read as "size and progress immediately; name at completion." (Minor blueprint edit tracked — see §13.)
 
-### 4.1 Encrypted variant (v0.3, opt-in — reverses DEC-1)
+### 4.1 Encrypted variant (v0.3, opt-in — reverses DEC-1; v0.4 adds Argon2id)
 
 When the sender supplies a passphrase, the message is the encrypted envelope
 (design + rationale: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md);
@@ -118,12 +118,12 @@ transparent to transport.
 message    = [ outer, ciphertext ]          ; still a 2-element dCBOR array
 outer      = {                              ; CLEARTEXT — readable before decryption
   0: 1,                                      ; envelope version = encrypted (absent ⇒ plaintext)
-  6: { 1:"pbkdf2-sha256", 2:iter, 3:salt(16B), 4:"aes-256-gcm", 5:nonce(12B) },
+  6: { 1:kdf-id, 2:work, 3:salt(16B), 4:"aes-256-gcm", 5:nonce(12B) },
 }
 ciphertext = AES-256-GCM(key, nonce, inner, aad = dCBOR(outer))
 inner      = [ meta, payload ]               ; the §4 plaintext message, sealed
 meta       = { 1:name, 2:media_type, 3:orig_size, 4:sha256, 5:compression }
-key        = PBKDF2-HMAC-SHA-256(passphrase, salt, iter)
+key        = KDF(passphrase, salt, work)     ; KDF chosen by kdf-id (below)
 ```
 
 - **compress-then-encrypt.** gzip runs first (§8), then AES-GCM — ciphertext is
@@ -134,8 +134,17 @@ key        = PBKDF2-HMAC-SHA-256(passphrase, salt, iter)
   cleartext `outer` carries only KDF/cipher parameters + the version marker.
 - **Discriminator.** Key `0` is present only when encrypted; a plaintext header
   (keys 1–5, no key 0) is byte-for-byte unchanged and fully backward-compatible.
-- **AAD.** `dCBOR(outer)` is authenticated (not encrypted), binding
-  salt/nonce/iterations to the ciphertext — no silent parameter downgrade.
+- **AAD.** `dCBOR(outer)` is authenticated (not encrypted), binding the KDF id +
+  its params + salt/nonce to the ciphertext — no silent parameter downgrade.
+- **KDF variants** (key 1 = `kdf-id`, key 2 = `work`):
+  - `pbkdf2-sha256` (v0.3, default) — `work` is the iteration count;
+    `key = PBKDF2-HMAC-SHA-256(passphrase, salt, work)`.
+  - `argon2id` (v0.4, **opt-in**) — `work` is a `{ m:KiB, t, p }` cost map;
+    `key = Argon2id(passphrase, salt, m, t, p)`. Runs in WebAssembly, so the built
+    pages add `'wasm-unsafe-eval'` to `script-src` (egress unchanged). Design:
+    [`09-implementation-plan-argon2.md`](09-implementation-plan-argon2.md).
+  An **unknown `kdf-id` fails closed** — a build without a given KDF never
+  mis-accepts.
 - **Two integrity checks on open** (§7): the AES-GCM tag (wrong passphrase or
   tamper → fail closed, file withheld) **and** the SHA-256 gate on the decrypted,
   decompressed bytes. The decompression-bomb bound (§9) reads `orig_size` from the

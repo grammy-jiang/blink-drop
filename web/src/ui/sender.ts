@@ -20,6 +20,8 @@ const scaleVal = el<HTMLSpanElement>("scaleVal");
 const stopBtn = el<HTMLButtonElement>("stop");
 const passInput = el<HTMLInputElement>("pass");
 const passNote = el<HTMLDivElement>("passnote");
+const argonBox = el<HTMLInputElement>("argon");
+const strengthEl = el<HTMLDivElement>("strength");
 
 const player = new FramePlayer(canvas, { fps: Number(rate.value), scale: Number(scale.value) });
 let seqLen = 0;
@@ -58,17 +60,41 @@ function updatePassNote(): void {
     ? "🔒 Encrypted — the receiver must enter this passphrase. Share it separately (not on screen). The file size and that a transfer happened are still visible."
     : "";
 }
-passInput.addEventListener("input", updatePassNote);
+
+// A rough, library-free strength hint — deliberately honest that it is only a
+// hint. Estimates entropy as length × log2(alphabet-from-character-classes).
+function updateStrength(): void {
+  const pw = passInput.value;
+  if (!pw) {
+    strengthEl.textContent = "";
+    return;
+  }
+  let classes = 0;
+  if (/[a-z]/.test(pw)) classes++;
+  if (/[A-Z]/.test(pw)) classes++;
+  if (/[0-9]/.test(pw)) classes++;
+  if (/[^a-zA-Z0-9]/.test(pw)) classes++;
+  const alphabet = [0, 26, 52, 62, 95][classes] ?? 26;
+  const bits = pw.length * Math.log2(alphabet);
+  const label = bits < 40 ? "weak" : bits < 70 ? "ok" : "strong";
+  strengthEl.textContent = `Strength: ${label} — a rough hint; a captured transfer can be attacked offline, so longer is safer.`;
+}
+
+passInput.addEventListener("input", () => {
+  updatePassNote();
+  updateStrength();
+});
 
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   if (!file) return;
   const passphrase = passInput.value || undefined;
-  statusEl.textContent = passphrase ? "Encrypting…" : "Preparing…";
+  const kdf = passphrase && argonBox.checked ? "argon2id" : undefined;
+  statusEl.textContent = passphrase ? (kdf ? "Encrypting (stronger)…" : "Encrypting…") : "Preparing…";
   const bytes = new Uint8Array(await file.arrayBuffer());
   const input = { bytes, name: file.name, mediaType: file.type || "application/octet-stream" };
 
-  const message = await buildMessage(input, { passphrase });
+  const message = await buildMessage(input, { passphrase, kdf });
   seqLen = systematicQrParts(message, DEFAULT_MAX_FRAGMENT_LENGTH).length;
   // Loop the systematic parts plus a redundancy set of fountain parts (blueprint L5/§7).
   const parts = qrPartStream(message, Math.ceil(seqLen * 1.5), DEFAULT_MAX_FRAGMENT_LENGTH);

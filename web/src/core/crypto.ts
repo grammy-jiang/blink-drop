@@ -39,6 +39,35 @@ export async function deriveKey(passphrase: string, salt: Uint8Array, iterations
   );
 }
 
+// Import raw 32-byte key material as an AES-256-GCM key.
+async function importAesKey(raw: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", asBuf(raw), { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+
+export interface Argon2Params {
+  m: number; // memory in KiB
+  t: number; // time / iterations
+  p: number; // parallelism
+}
+
+// Argon2id via hash-wasm. The wasm is embedded as base64 inside hash-wasm's JS
+// (no external .wasm), so the single-file offline sender stays a single file;
+// and it is lazily imported here so the PBKDF2/plaintext paths never pull it.
+// Memory-hard → far costlier to brute-force offline than PBKDF2 (docs/09).
+export async function deriveKeyArgon2(passphrase: string, salt: Uint8Array, params: Argon2Params): Promise<CryptoKey> {
+  const { argon2id } = await import("hash-wasm");
+  const raw = await argon2id({
+    password: passphrase,
+    salt,
+    memorySize: params.m,
+    iterations: params.t,
+    parallelism: params.p,
+    hashLength: 32,
+    outputType: "binary",
+  });
+  return importAesKey(raw);
+}
+
 // AES-256-GCM. `aad` (the cleartext outer header) is authenticated but not
 // encrypted, binding the KDF/cipher params to the ciphertext so they cannot be
 // downgraded without breaking the tag.

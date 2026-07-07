@@ -80,6 +80,38 @@ describe("test vectors — tier 1 (encrypted framing, byte-exact)", () => {
     const decoded = await decodeQrPartsToFile(parts, { passphrase: p.passphrase });
     expect(hex(await sha256(decoded.bytes))).toBe(hex(await sha256(input.bytes)));
   });
+
+  it("framing/vec-05-encrypted-argon2: rebuilds the exact argon2id message + parts, and decrypts back", async () => {
+    const name = "vec-05-encrypted-argon2";
+    const p = JSON.parse(await readText(`framing/${name}/params.json`)) as {
+      maxFragmentLength: number;
+      argon: { m: number; t: number; p: number };
+      saltHex: string;
+      nonceHex: string;
+      passphrase: string;
+      plaintextHex: string;
+      name: string;
+      mediaType: string;
+    };
+    const input: FileInput = { bytes: fromHex(p.plaintextHex), name: p.name, mediaType: p.mediaType };
+    const opts = {
+      passphrase: p.passphrase,
+      kdf: "argon2id" as const,
+      argon: p.argon,
+      salt: fromHex(p.saltHex),
+      nonce: fromHex(p.nonceHex),
+    };
+
+    const message = await buildMessage(input, opts);
+    expect(hex(message)).toBe((await readText(`framing/${name}/message.cbor.hex`)).trim());
+
+    const expectedParts = (await readText(`framing/${name}/parts.txt`)).split("\n").filter((l) => l.length > 0);
+    expect(systematicQrParts(message, p.maxFragmentLength)).toEqual(expectedParts);
+
+    const parts = await encodeFileToQrParts(input, p.maxFragmentLength, opts);
+    const decoded = await decodeQrPartsToFile(parts, { passphrase: p.passphrase });
+    expect(hex(await sha256(decoded.bytes))).toBe(hex(await sha256(input.bytes)));
+  });
 });
 
 // Tier 2 — end-to-end. Encode the original with our own gzip and recover bytes
