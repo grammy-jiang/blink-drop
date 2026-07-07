@@ -43,8 +43,8 @@
 | protocol (unchanged) | `docs/01-protocol.md` v0.1 |
 | update_source | Explicit user decision, 2026-07-07 |
 | topic_slug | `blink-drop` |
-| Patch entries | 13 (§5) |
-| ADRs changed | 1 superseded (ADR-0006), 1 new (ADR-0009) |
+| Patch entries | 13 (§5) — **update-1 scope only; see the Update-History table + Update-2/3/4 addenda for later patches** |
+| ADRs changed | update-1: 1 superseded (ADR-0006), 1 new (ADR-0009). **Later: ADR-0007/0010 amended; ADR-0010/0011/0012 new — see Update-History** |
 | Architecture Update Required? | **Yes — applied by this note** |
 | skill_version | architecture (update mode); version `unknown` |
 

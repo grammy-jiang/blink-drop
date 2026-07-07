@@ -1,6 +1,6 @@
 # Blink-Drop — Roadmap
 
-> **⚠️ Superseded (2026-07-07).** This roadmap predates the PWA pivot. What actually shipped: **M0 proven**, then **MVP-1 = the PWA receiver, released as v0.1.0** — the M0 browser receiver was **promoted to the product**, not discarded. The **native-iOS milestones (M1–M4) below are deferred** (no Mac). Current build plan: [`05-implementation-plan.md`](05-implementation-plan.md); pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
+> **⚠️ Superseded (2026-07-07).** This roadmap predates the PWA pivot. What actually shipped: **M0 proven**, then **MVP-1 = the PWA receiver, released as v0.1.0** — the M0 browser receiver was **promoted to the product**, not discarded. Development then continued through **v0.6.1** — encryption (v0.3), Argon2id (v0.4), sender polish/drag-drop (v0.5), resume (v0.6) — see [`../CHANGELOG.md`](../CHANGELOG.md) and plans [`06`](06-implementation-plan-v0.2.md)–[`11`](11-implementation-plan-resume.md). The **native-iOS milestones (M1–M4) below are deferred** (no Mac). Pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
 
 | | |
 |---|---|
@@ -96,7 +96,7 @@ Every criterion is claimed by at least one milestone; none is left to chance.
 
 ## Explicitly deferred (v1.1+ backlog)
 
-Per blueprint §9: the **native iOS app** (deferred — needs a Mac), resume-across-restart, multi-file, Android receiver. None gates v1. *(Notes: PWA packaging is **not** deferred — it shipped in v0.1.0. Passphrase **encryption** is **no longer backlog** — it is the **v0.3** release, designed in [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md); that design also corrects the layer order to compress-**then**-encrypt.)*
+Per blueprint §9: the **native iOS app** (deferred — needs a Mac), multi-file, Android receiver. None gates v1. *(Notes: PWA packaging shipped in v0.1.0; passphrase **encryption** shipped in **v0.3** ([`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md), compress-**then**-encrypt); **resume-across-restart** shipped in **v0.6** ([`11-implementation-plan-resume.md`](11-implementation-plan-resume.md)) — both no longer backlog.)*
 
 ## Status of gates already passed
 
