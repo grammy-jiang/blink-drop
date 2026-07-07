@@ -1,25 +1,43 @@
-// The Blink-Drop file envelope (docs/01-protocol.md §4, §7, §8, §9).
+// The Blink-Drop file envelope (docs/01-protocol.md §4, §7, §8, §9; encryption
+// in docs/07 §4).
 //
-//   original file  --gzip-->  payload
-//   message = dCBOR [ header, payload ]
-//   header  = { 1:name, 2:media_type, 3:orig_size, 4:sha256(original), 5:compression }
+//   PLAINTEXT (default, unchanged wire format):
+//     original file --gzip--> payload
+//     message = dCBOR [ header, payload ]
+//     header  = { 1:name, 2:media_type, 3:orig_size, 4:sha256(original), 5:compression }
 //
-// buildMessage produces the message bytes that UR/MUR transports; openMessage
-// reverses it and applies the two mandatory gates: the bounded decompression
-// (SG-2) and the SHA-256 file-acceptance check (SG-1). Nothing is returned to a
+//   ENCRYPTED (opt-in, when a passphrase is supplied):
+//     inner   = dCBOR [ meta, payload ]            ; meta = the header above
+//     message = dCBOR [ outer, ciphertext ]        ; ciphertext = AES-256-GCM(inner)
+//     outer   = { 0:version, 6:{ kdf,iter,salt,cipher,nonce } }   ; cleartext, AAD-bound
+//
+// compress-then-encrypt: gzip runs first (ciphertext is incompressible), and the
+// metadata rides INSIDE the ciphertext so name/type/size/hash no longer leak.
+// buildMessage produces the message bytes UR/MUR transports; openMessage reverses
+// it and applies the mandatory gates — bounded decompression (SG-2) and the
+// SHA-256 file-acceptance check (SG-1) — to both paths. Nothing is returned to a
 // caller unless the digest matches.
 
 import { type CborMap, type CborValue, decode as cborDecode, encode as cborEncode } from "./cbor";
+import { aesGcmDecrypt, aesGcmEncrypt, deriveKey, randomBytes } from "./crypto";
 import { bytesEqual, sha256 } from "./digest";
 import { gunzip, gzip } from "./gzip";
 import {
+  CIPHER_AES_256_GCM,
   Compression,
   type CompressionValue,
   type DecodedFile,
+  ENVELOPE_VERSION_ENCRYPTED,
+  EncKey,
   type FileInput,
+  GCM_NONCE_BYTES,
   HARD_MAX_DECOMPRESSED_BYTES,
   type Header,
   HeaderKey,
+  KDF_PBKDF2_SHA256,
+  OuterKey,
+  PBKDF2_ITERATIONS,
+  SALT_BYTES,
   SHA256_BYTES,
 } from "./types";
 
@@ -29,8 +47,29 @@ export class MalformedMessageError extends Error {
 export class DigestMismatchError extends Error {
   override name = "DigestMismatchError";
 }
+// The message is encrypted but no passphrase was supplied. Distinct from
+// WrongPassphraseError (a supplied passphrase that failed the AEAD tag) so the
+// receiver can prompt rather than show a failure.
+export class PassphraseRequiredError extends Error {
+  override name = "PassphraseRequiredError";
+}
 
-export async function buildMessage(input: FileInput): Promise<Uint8Array> {
+export interface OpenOptions {
+  passphrase?: string;
+}
+
+export interface BuildOptions {
+  // Supplying a passphrase produces the encrypted envelope; omitting it keeps
+  // the plaintext wire format byte-for-byte.
+  passphrase?: string;
+  // Deterministic overrides — for test vectors ONLY. Production always uses a
+  // fresh CSPRNG salt/nonce and the PBKDF2_ITERATIONS default.
+  salt?: Uint8Array;
+  nonce?: Uint8Array;
+  iterations?: number;
+}
+
+export async function buildMessage(input: FileInput, opts: BuildOptions = {}): Promise<Uint8Array> {
   const digest = await sha256(input.bytes);
   const compressed = await gzip(input.bytes);
 
@@ -39,7 +78,7 @@ export async function buildMessage(input: FileInput): Promise<Uint8Array> {
   const payload = useGzip ? compressed : input.bytes;
   const compression: CompressionValue = useGzip ? Compression.gzip : Compression.none;
 
-  const header: CborMap = new Map<number, CborValue>([
+  const meta: CborMap = new Map<number, CborValue>([
     [HeaderKey.name, input.name],
     [HeaderKey.mediaType, input.mediaType],
     [HeaderKey.origSize, input.bytes.length],
@@ -47,10 +86,39 @@ export async function buildMessage(input: FileInput): Promise<Uint8Array> {
     [HeaderKey.compression, compression],
   ]);
 
-  return cborEncode([header, payload]);
+  if (!opts.passphrase) {
+    return cborEncode([meta, payload]);
+  }
+
+  // Encrypted: seal [meta, payload] under a passphrase-derived key.
+  const inner = cborEncode([meta, payload]);
+  const salt = opts.salt ?? randomBytes(SALT_BYTES);
+  const nonce = opts.nonce ?? randomBytes(GCM_NONCE_BYTES);
+  const iterations = opts.iterations ?? PBKDF2_ITERATIONS;
+
+  const outer = buildOuter(salt, nonce, iterations);
+  const aad = cborEncode(outer); // deterministic (canonical CBOR) → reproducible on decrypt
+  const key = await deriveKey(opts.passphrase, salt, iterations);
+  const ciphertext = await aesGcmEncrypt(key, nonce, inner, aad);
+  return cborEncode([outer, ciphertext]);
 }
 
-export function parseMessage(message: Uint8Array): { header: Header; payload: Uint8Array } {
+function buildOuter(salt: Uint8Array, nonce: Uint8Array, iterations: number): CborMap {
+  const params: CborMap = new Map<number, CborValue>([
+    [EncKey.kdf, KDF_PBKDF2_SHA256],
+    [EncKey.iter, iterations],
+    [EncKey.salt, salt],
+    [EncKey.cipher, CIPHER_AES_256_GCM],
+    [EncKey.nonce, nonce],
+  ]);
+  return new Map<number, CborValue>([
+    [OuterKey.version, ENVELOPE_VERSION_ENCRYPTED],
+    [OuterKey.enc, params],
+  ]);
+}
+
+// Decode the top-level [map, bytes] shape shared by both message kinds.
+function decodeMessageArray(message: Uint8Array): [CborMap, Uint8Array] {
   let decoded: CborValue;
   try {
     decoded = cborDecode(message);
@@ -58,14 +126,34 @@ export function parseMessage(message: Uint8Array): { header: Header; payload: Ui
     throw new MalformedMessageError(`message is not valid CBOR: ${(e as Error).message}`);
   }
   if (!Array.isArray(decoded) || decoded.length !== 2) {
-    throw new MalformedMessageError("message must be a 2-element CBOR array [header, payload]");
+    throw new MalformedMessageError("message must be a 2-element CBOR array");
   }
-  const [rawHeader, payload] = decoded;
-  if (!(rawHeader instanceof Map)) throw new MalformedMessageError("header must be a CBOR map");
-  if (!(payload instanceof Uint8Array)) throw new MalformedMessageError("payload must be a CBOR byte string");
+  const [first, second] = decoded;
+  if (!(first instanceof Map)) throw new MalformedMessageError("first message element must be a CBOR map");
+  if (!(second instanceof Uint8Array))
+    throw new MalformedMessageError("second message element must be a CBOR byte string");
+  return [first, second];
+}
 
-  const header = readHeader(rawHeader);
-  return { header, payload };
+// True when the message is an encrypted envelope. Lets the receiver prompt for a
+// passphrase before attempting to open it. Never throws.
+export function isEncryptedMessage(message: Uint8Array): boolean {
+  try {
+    const [first] = decodeMessageArray(message);
+    return first.get(OuterKey.version) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+// Plaintext-only parse (kept for the plaintext wire contract / tests). Rejects an
+// encrypted message — use openMessage with a passphrase for those.
+export function parseMessage(message: Uint8Array): { header: Header; payload: Uint8Array } {
+  const [first, payload] = decodeMessageArray(message);
+  if (first.get(OuterKey.version) !== undefined) {
+    throw new MalformedMessageError("message is encrypted; open it with a passphrase");
+  }
+  return { header: readHeader(first), payload };
 }
 
 function readHeader(map: CborMap): Header {
@@ -94,16 +182,80 @@ function expect<K extends Kind>(map: CborMap, key: number, kind: K, label: strin
   throw new MalformedMessageError(`header field ${label} has the wrong type`);
 }
 
-export async function openMessage(message: Uint8Array): Promise<DecodedFile> {
-  const { header, payload } = parseMessage(message);
+// Decrypt an encrypted envelope → the inner header + payload. Throws
+// PassphraseRequiredError when none was supplied, and WrongPassphraseError
+// (from crypto.ts) when the AEAD tag fails.
+async function openEncrypted(
+  outer: CborMap,
+  ciphertext: Uint8Array,
+  passphrase: string | undefined,
+): Promise<{ header: Header; payload: Uint8Array }> {
+  if (passphrase === undefined || passphrase === "") {
+    throw new PassphraseRequiredError("this transfer is encrypted; a passphrase is required");
+  }
+  if (outer.get(OuterKey.version) !== ENVELOPE_VERSION_ENCRYPTED) {
+    throw new MalformedMessageError(`unsupported envelope version ${String(outer.get(OuterKey.version))}`);
+  }
+  const params = outer.get(OuterKey.enc);
+  if (!(params instanceof Map)) throw new MalformedMessageError("encrypted envelope missing enc params");
 
+  const kdf = params.get(EncKey.kdf);
+  const cipher = params.get(EncKey.cipher);
+  const iterations = params.get(EncKey.iter);
+  const salt = params.get(EncKey.salt);
+  const nonce = params.get(EncKey.nonce);
+  if (kdf !== KDF_PBKDF2_SHA256) throw new MalformedMessageError(`unsupported kdf ${String(kdf)}`);
+  if (cipher !== CIPHER_AES_256_GCM) throw new MalformedMessageError(`unsupported cipher ${String(cipher)}`);
+  if (typeof iterations !== "number" || iterations <= 0) throw new MalformedMessageError("invalid kdf iterations");
+  if (!(salt instanceof Uint8Array) || salt.length !== SALT_BYTES) throw new MalformedMessageError("invalid kdf salt");
+  if (!(nonce instanceof Uint8Array) || nonce.length !== GCM_NONCE_BYTES)
+    throw new MalformedMessageError("invalid nonce");
+
+  const aad = cborEncode(outer);
+  const key = await deriveKey(passphrase, salt, iterations);
+  const inner = await aesGcmDecrypt(key, nonce, ciphertext, aad); // WrongPassphraseError on tag failure
+
+  let decoded: CborValue;
+  try {
+    decoded = cborDecode(inner);
+  } catch (e) {
+    throw new MalformedMessageError(`decrypted inner is not valid CBOR: ${(e as Error).message}`);
+  }
+  if (!Array.isArray(decoded) || decoded.length !== 2) {
+    throw new MalformedMessageError("decrypted inner must be a 2-element [meta, payload] array");
+  }
+  const [metaMap, payload] = decoded;
+  if (!(metaMap instanceof Map)) throw new MalformedMessageError("inner meta must be a CBOR map");
+  if (!(payload instanceof Uint8Array)) throw new MalformedMessageError("inner payload must be a CBOR byte string");
+  return { header: readHeader(metaMap), payload };
+}
+
+export async function openMessage(message: Uint8Array, opts: OpenOptions = {}): Promise<DecodedFile> {
+  const [first, second] = decodeMessageArray(message);
+
+  let header: Header;
+  let payload: Uint8Array;
+  if (first.get(OuterKey.version) !== undefined) {
+    ({ header, payload } = await openEncrypted(first, second, opts.passphrase));
+  } else {
+    header = readHeader(first);
+    payload = second;
+  }
+
+  return finishOpen(header, payload);
+}
+
+// The two mandatory gates, shared by the plaintext and decrypted paths: bounded
+// decompression (SG-2) then the SHA-256 file-acceptance check (SG-1).
+async function finishOpen(header: Header, payload: Uint8Array): Promise<DecodedFile> {
   const cap = Math.min(header.origSize, HARD_MAX_DECOMPRESSED_BYTES);
   let bytes: Uint8Array;
   if (header.compression === Compression.gzip) {
     bytes = await gunzip(payload, cap);
   } else {
-    if (payload.length > HARD_MAX_DECOMPRESSED_BYTES)
+    if (payload.length > HARD_MAX_DECOMPRESSED_BYTES) {
       throw new MalformedMessageError("stored payload exceeds hard ceiling");
+    }
     bytes = payload;
   }
 

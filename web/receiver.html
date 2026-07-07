@@ -65,12 +65,23 @@
         align-items: center;
         min-width: min(90vw, 360px);
       }
+      .badges { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
       .badge {
         color: #047857;
         font-weight: 700;
         background: #ecfdf5;
         padding: 0.2rem 0.7rem;
         border-radius: 999px;
+      }
+      .badge.lock { color: #1e40af; background: #eff6ff; }
+      .enc-note { max-width: 34ch; }
+      .pp {
+        padding: 0.55rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        font-size: 1rem;
+        width: min(80vw, 320px);
       }
       .fname { font-weight: 700; word-break: break-all; }
       .meta { color: #6b7280; font-size: 0.9rem; }
@@ -103,6 +114,8 @@
         button { background: #1f2937; color: #f9fafb; border-color: #374151; }
         button.primary { background: #2563eb; border-color: #2563eb; }
         .install { background: #1f2937; color: #d1d5db; }
+        .badge.lock { color: #bfdbfe; background: #1e293b; }
+        .pp { background: #1f2937; color: #f9fafb; border-color: #374151; }
       }
     </style>
   </head>
