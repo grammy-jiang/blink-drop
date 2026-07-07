@@ -96,7 +96,7 @@ Every criterion is claimed by at least one milestone; none is left to chance.
 
 ## Explicitly deferred (v1.1+ backlog)
 
-Per blueprint §9 / DEC-1: passphrase **encryption** (top item; slots into `core/` between file and gzip, protocol §11), the **native iOS app** (deferred — needs a Mac), resume-across-restart, multi-file, Android receiver. None gates v1. *(Note: PWA packaging is **not** deferred — it shipped in v0.1.0.)*
+Per blueprint §9: the **native iOS app** (deferred — needs a Mac), resume-across-restart, multi-file, Android receiver. None gates v1. *(Notes: PWA packaging is **not** deferred — it shipped in v0.1.0. Passphrase **encryption** is **no longer backlog** — it is the **v0.3** release, designed in [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md); that design also corrects the layer order to compress-**then**-encrypt.)*
 
 ## Status of gates already passed
 
