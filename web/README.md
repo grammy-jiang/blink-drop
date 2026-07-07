@@ -1,68 +1,71 @@
-# Blink-Drop — Web Sender
+# Blink-Drop — Web (sender + PWA receiver)
 
-The sender half of Blink-Drop (offline animated-QR file transfer). Static,
-client-side, no backend. See `../docs/` for the blueprint, protocol, architecture,
-and UX design; this README is just how to work in `web/`.
+The web half of Blink-Drop (offline animated-QR file transfer): a static,
+client-side **sender** and an installable **PWA receiver**, both built from one
+isomorphic protocol core. No backend. See `../docs/` for the blueprint, protocol,
+architecture (+ update notes), and UX design; this README is how to work in `web/`.
 
-## Status (M0)
+## What's here
 
-- ✅ `src/core/` — the protocol core (envelope · gzip · SHA-256 · UR/MUR transport). Pure, isomorphic (runs in browser and node), tested (19/19).
-- ✅ `../shared/test-vectors/` — the cross-language contract (generated here).
-- ✅ Sender UI (`index.html` + `src/ui/sender.ts`) — drop → plan/ETA → animated canvas → rate/scale controls. Verified rendering in a real browser.
-- ✅ Throwaway browser receiver (`receiver.html` + `src/ui/receiver.ts`) — camera mode plus two automatable proofs, both PASS in-browser:
-  - `receiver.html?selftest` — camera-free loopback: core → QR render → jsQR → core → verify (1/1 and 16/16 render→scan, verified).
-  - `receiver.html?streamtest` — through the **real camera code path** via `canvas.captureStream()` (synthetic camera): sender canvas → MediaStream → video → sample loop → jsQR → verify (seqLen 13, 101 frames sampled, verified). Exercises the video sampling the loopback skips.
-- ⏳ Real optics only (physical lens/glare/focus) — the entire software camera path is proven; only a genuine phone camera pointed at a screen remains (E2E-2).
-
-### Run the phone test
-
-```bash
-npm run dev -- --host        # expose on the LAN
-# laptop: open http://<laptop-ip>:5173/  (sender), pick a file
-# phone:  open http://<laptop-ip>:5173/receiver.html, tap "Start camera", aim at the animation
-```
+- **`src/core/`** — the pure, isomorphic protocol core (envelope · gzip · SHA-256
+  · UR/MUR transport · **passphrase encryption**). Runs in browser and node;
+  bound to `../shared/test-vectors/`.
+- **Sender** (`index.html` + `src/ui/sender.ts`) — pick or **drop** a file →
+  plan/ETA → animated QR canvas; rate/density controls; optional **passphrase**
+  (AES-256-GCM; PBKDF2 or opt-in **Argon2id**) + strength hint; soft-ceiling
+  warning; a receiver-URL QR.
+- **PWA receiver** (`receiver.html` + `src/ui/receiver.ts`) — camera scan → whole-%
+  progress + stall guidance → SHA-256 verify → Web Share; encrypted passphrase
+  prompt + distinct wrong-passphrase state; **resume across restart** (partial
+  encrypted at rest). Installable (manifest + service worker). `receiver.html?debug`
+  keeps the M0 loopback/stream self-tests.
 
 ## Commands
 
 ```bash
-npm install        # deps: @ngraveio/bc-ur (runtime) + vite/vitest/tsx (dev)
-npm test           # run the core + vector test suite (node env, no browser)
-npm run dev        # Vite dev server (once the UI exists)
-npm run build      # single-file offline build -> dist/ (vite-plugin-singlefile)
-npm run gen:vectors  # regenerate ../shared/test-vectors (deliberate — protocol-level change)
+npm ci
+npm test              # core, crypto, vectors, edge, resume, receiver (node + jsdom)
+npm run typecheck     # tsc --noEmit
+npm run dev           # Vite dev server (sender + receiver)
+npm run build         # the Pages site: sender (index.html) + PWA receiver (receiver.html) -> dist/
+npm run build:sender  # the single-file offline sender -> dist-sender/
+npm run gen:vectors   # regenerate ../shared/test-vectors (deliberate — protocol-level change)
+npm run gen:icons     # regenerate the PWA icons
 ```
-
-Type-check: `npx tsc --noEmit -p tsconfig.json`.
 
 ## Layout
 
 ```
-src/core/        # PURE protocol core — no DOM. The M0 browser receiver reuses this unchanged.
-  cbor.ts        #   minimal deterministic CBOR for the [header, payload] message
-  gzip.ts        #   bounded gzip/gunzip (CompressionStream); decompression-bomb guard (SG-2)
-  digest.ts      #   SHA-256 (WebCrypto)
-  types.ts       #   protocol constants + Header shape
-  envelope.ts    #   file <-> message; SHA-256 acceptance gate (SG-1)
-  ur.ts          #   message <-> UR/MUR parts (bc-ur); the only bc-ur boundary
-  index.ts       #   public API + encodeFileToQrParts / decodeQrPartsToFile
-scripts/gen-vectors.ts   # regenerates the shared test vectors
-test/            # vitest: core behaviour + shared-vector conformance
+src/
+  core/           # PURE protocol core — no DOM. Reused verbatim by sender AND receiver.
+    cbor.ts       #   minimal deterministic CBOR for the [header, payload] / [outer, ciphertext] message
+    gzip.ts       #   bounded gzip/gunzip (CompressionStream); decompression-bomb guard (SG-2)
+    digest.ts     #   SHA-256 (WebCrypto)
+    crypto.ts     #   passphrase encryption: AES-256-GCM + PBKDF2 / opt-in Argon2id (hash-wasm)
+    types.ts      #   protocol constants + Header / envelope shapes
+    envelope.ts   #   file <-> message; plaintext + encrypted variants; SHA-256 gate (SG-1)
+    ur.ts         #   message <-> UR/MUR parts (bc-ur); the only bc-ur boundary
+    index.ts      #   public API + encodeFileToQrParts / decodeQrPartsToFile
+  qr/             # QR render (qrcode-generator) + scan (jsQR)
+  player/         # the sender's frame player (loops systematic + fountain parts)
+  receiver/       # camera.ts, share.ts (Web Share), resume.ts (encrypted-at-rest partial)
+  ui/             # sender.ts, receiver.ts, debug.ts, size.ts
+scripts/          # gen-vectors, gen-icons, gen-static-qr
+test/             # vitest: core, crypto, vectors, edge, resume, receiver
+vite-csp.ts       # build-time CSP injection (no-egress; 'wasm-unsafe-eval' for Argon2)
 ```
 
 ## Notes
 
-- `src/core/` must never import from the (future) `qr/`, `player/`, `ui/` — it is
-  the piece bound to the test vectors and reused by the M0 receiver.
-- bc-ur uses node `Buffer`; the browser build will supply a polyfill (added with
-  the UI). Core tests run in node where `Buffer` is native.
-- npm audit reports advisories in the **dev** toolchain (vitest/vite/esbuild)
-  only; none is in the runtime dependency or the shipped offline artifact.
-- **QR encode lib:** `qrcode-generator` (kazuhikoarase), not nayuki `qrcodegen`
-  as the architecture doc names — nayuki's is not published to npm (`qrcodegen`
-  there is an empty squat). `qrcode-generator` is equivalent for our needs
-  (explicit Alphanumeric mode + ECC-L). **QR decode:** `jsQR` (pure JS), chosen
-  over the native `BarcodeDetector` because the latter is absent on desktop Linux
-  Chrome and iOS Safari.
-- **Browser polyfills:** bc-ur needs node's `Buffer` and `process` globals;
-  `src/polyfill.ts` supplies both and must be imported first in each browser entry.
+- `src/core/` must not import from `qr/`, `player/`, `ui/`, `receiver/` — it is the
+  piece bound to the test vectors and reused by both surfaces.
+- **Encryption at rest (receiver resume):** `receiver/resume.ts` stores the partial
+  AES-GCM-encrypted under a receiver-local **non-extractable** key in IndexedDB.
+- **QR encode:** `qrcode-generator` (kazuhikoarase), not nayuki's `qrcodegen`
+  (unpublished on npm). **QR decode:** `jsQR` (pure JS), chosen over the native
+  `BarcodeDetector` (absent on desktop Linux Chrome and iOS Safari).
+- **Browser polyfills:** bc-ur needs node's `Buffer` and `process`; `src/polyfill.ts`
+  supplies both and is imported first in each browser entry.
+- `npm audit` advisories are in the **dev** toolchain (vite/esbuild) only; none is
+  in a runtime dependency or the shipped artifact.
 ```

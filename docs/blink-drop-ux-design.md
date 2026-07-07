@@ -2,9 +2,9 @@
 
 > **⚠️ Pre-pivot surface note (2026-07-07).** The receiver shipped as an **installable PWA**, not a native iOS app. Read every "iOS Receiver / SwiftUI / AVFoundation / ShareLink / .fileExporter / Xcode" reference below as its **PWA equivalent**: **getUserMedia + jsQR** over HTTPS, **Web Share API + download fallback**, install via the browser. The **state model, journeys, honest-progress, verified-gate, stall guidance, and result card are unchanged** — only the surface and share/export APIs differ. Pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
 >
-> **⚠️ Encryption update (v0.3, 2026-07-07).** Opt-in passphrase encryption **shipped** (DEC-1 reversed). The "no confidentiality in v1 / Future story" notes below (§4 non-goals, §Security summary, US-F1) are **superseded**: the receiver now has a **passphrase-prompt → wrong-passphrase (loud, file withheld) → 🔒 verified** flow, and the sender an optional passphrase field with honest-limits copy. Full UX + design: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md) §7.
+> **⚠️ Encryption update (v0.3, 2026-07-07).** Opt-in passphrase encryption **shipped** (DEC-1 reversed). The "no confidentiality / no-privacy-claims / Future story" notes below (§3, §4 non-goals, §8 UXD-6, §14, US-F1) are **superseded**: the receiver now has a **passphrase-prompt → wrong-passphrase (loud, file withheld) → 🔒 verified** flow, and the sender an optional passphrase field with honest-limits copy. Full UX + design: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md) §7.
 >
-> **⚠️ Resume update (v0.6, 2026-07-07).** The receiver gains a **Resumable** boot state (offer *Resume (X%)* / *Start fresh* when an interrupted transfer was persisted) and a **Resuming** transient (replay saved parts, then scan). The partial is encrypted at rest. Design: [`11-implementation-plan-resume.md`](11-implementation-plan-resume.md).
+> **⚠️ Resume update (v0.6, 2026-07-07).** The receiver gains a **Resumable** boot state (offer *Resume (X%)* / *Start fresh* when an interrupted transfer was persisted) and a **Resuming** transient (replay saved parts, then scan). The partial is encrypted at rest. This **supersedes** the "no resume in v1" statements below (§6.2 receiver states, §14 state model, §15 recovery). Design: [`11-implementation-plan-resume.md`](11-implementation-plan-resume.md).
 
 ## Contents
 
@@ -82,7 +82,7 @@ From the blueprint's **Product Experience Direction** (preserved, not changed):
 - **Experience thesis:** *Point your phone at a screen; the file arrives, verified — no setup, no pairing, no accounts.*
 - **JTBD:** move a small file from a computer to a phone when no network/cable/cloud/pairing is available.
 - **Interaction modes:** web sender (drop → plan → play → adjust) and iOS receiver (open → scan → progress → verified → share). No other surfaces.
-- **Trust/control/transparency:** honest progress; verified only after SHA-256; no privacy claims v1; user keeps control (adjust/abort/choose target).
+- **Trust/control/transparency:** honest progress; verified only after SHA-256; no privacy claims for *plaintext* (opt-in encryption shipped v0.3 — an honest lock is allowed, never overclaimed); user keeps control (adjust/abort/choose target).
 - **Human-in-the-loop:** the human is the acknowledgment channel (one-way channel) — cues "got it / it's stuck / start over".
 - **Failure/recovery expectations:** stalls get concrete guidance; verify-fail is loud and withholds the file.
 - **Recommended Next Stages:** ux-design (this) → implementation-plan.
@@ -167,7 +167,7 @@ Solo-primary shapes the copy: the "cues" become **watch-your-own-phone self-sign
 | UXD-3 | Camera-framing help | **Light active guidance** (target frame + escalating stall hints) | user-confirmed 2026-07-07 | §6.2, §15, US-R3/R5 |
 | UXD-4 | Progress semantics | Receiver: real fraction of known total; Sender: time/cycles only | architecture §23.4 (preserved) | §14, US-R4 |
 | UXD-5 | Verified gating | "Verified" shown only after SHA-256 (SG-1) | architecture §17.7 (preserved) | US-R6 |
-| UXD-6 | Privacy claims | None — UI must not imply confidentiality (DEC-1) | architecture §17.5 (preserved) | §14 |
+| UXD-6 | Privacy claims | ~~None (DEC-1)~~ **superseded v0.3** — opt-in encryption ships; an honest lock is allowed, no overclaim | architecture update-2 | §14 |
 
 ---
 
@@ -340,7 +340,7 @@ Design implication: the **sender's self-cue** ("keep playing until your phone sh
 
 - **Verified means verified.** The verified ✓ badge and the file itself appear **only after the SHA-256 gate** (SG-1). "All frames seen" is never shown as done.
 - **Honest progress.** Receiver shows a real fraction of a known total; sender shows time/cycles and **must never fabricate a delivery %** (it cannot know).
-- **No false privacy (DEC-1).** The UI must **not** imply the transfer is confidential — no lock icons, no "secure"/"encrypted" language. If any reassurance is shown, it is about *integrity* (verified), not *secrecy*. (A short, honest note that anyone who can see the screen can read the data is acceptable; a "secure" claim is not.)
+- **Honest privacy (DEC-1 reversed v0.3).** A *plaintext* transfer implies no confidentiality — no false "secure" claim. **An encrypted transfer may show a lock + "Encrypted"**, but with honest limits (size and that a transfer happened still leak); reassurance about *integrity* (verified) stays distinct from *secrecy*. Never overclaim.
 - **Control.** The user can adjust (rate/scale), abort at any time (no residue), choose the share target, and **Discard** a verified-but-unwanted file. Failure never coerces acceptance.
 
 ---
@@ -359,7 +359,7 @@ Design implication: the **sender's self-cue** ("keep playing until your phone sh
 | **Error — decompression overflow** | Receiver | treated as verify failure (Failed); same UX |
 | **Error — camera permission denied** | Receiver | Blocking screen: why the camera is needed + "Open Settings" deep link |
 | **Error — no camera / unsupported** | Receiver | Clear "this device can't scan" message (e.g. Simulator) |
-| **Recovery — mid-loop join / backgrounded** | Receiver | Rescanning is cheap (R-SUBSET); no resume in v1 — restarting collection is fast and framed as normal |
+| **Recovery — mid-loop join / backgrounded** | Receiver | Rescanning is cheap (R-SUBSET); **resume across restart shipped v0.6** — an interrupted large scan offers Resume (X%) / Start fresh (partial encrypted at rest) |
 | **Warning — oversized file** | Sender Loaded | Soft warning + honest ETA; user may proceed |
 | **Benign — share cancelled** | Receiver Complete | Stay on the result card |
 

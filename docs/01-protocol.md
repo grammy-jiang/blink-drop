@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.1 — the contract |
+| **Status** | Draft v0.1 + encrypted-envelope amendments (§4.1 — v0.3 encryption, v0.4 Argon2id) |
 | **Date** | 2026-07-07 |
-| **Depends on** | `00-blueprint.md` (v0.3) — requirements R-SUBSET, R-SELFDESC, R-META, R-INTEGRITY, R-DEDUPE, R-SESSION, R-ADJUST, R-OFFLINE |
-| **Governs** | Both `web/` (sender) and `ios/` (receiver). This document is the *only* thing the two sides share besides `shared/test-vectors/`. A change here is a change to both. |
+| **Depends on** | `00-blueprint.md` (v0.6) — requirements R-SUBSET, R-SELFDESC, R-META, R-INTEGRITY, R-DEDUPE, R-SESSION, R-ADJUST, R-OFFLINE |
+| **Governs** | `web/` — the sender **and** the PWA receiver (native `ios/` is deferred). This document is the *only* thing the two sides share besides `shared/test-vectors/`. A change here is a change to both. |
 | **Scope** | Defines the bytes on the wire and the rules for producing/consuming them. Does **not** choose UI frameworks, camera APIs, or file-picker mechanics — those are the architecture documents' job. Where this spec says "the library handles X," the specific library is named in §12 and pinned in the architecture docs. |
 
 ---
@@ -104,7 +104,7 @@ Notes:
 - **`orig_size` is load-bearing for safety** — it bounds decompression (§9, decompression-bomb guard).
 - The header is intentionally minimal; anything not needed to *reconstruct and verify the file* stays out (e.g. no timestamps — they would also break deterministic test vectors).
 
-**Metadata availability (reconciliation with blueprint §6.2).** A single fragment is raw message bytes and is *not* independently CBOR-decodable, so `name`/`media_type` become readable only once the whole message assembles. However, `messageLen` (≈ compressed size) is in *every* part, so the receiver shows a **real byte-size and progress denominator from the first captured part**; the **filename/type appear at reassembly**. Blueprint §6.2's "file name … appear immediately" should be read as "size and progress immediately; name at completion." (Minor blueprint edit tracked — see §13.)
+**Metadata availability (reconciliation with blueprint §6.2).** A single fragment is raw message bytes and is *not* independently CBOR-decodable, so `name`/`media_type` become readable only once the whole message assembles. However, `messageLen` (≈ compressed size) is in *every* part, so the receiver shows a **real byte-size and progress denominator from the first captured part**; the **filename/type appear at reassembly**. Blueprint §6.2's "file name … appear immediately" should be read as "size and progress immediately; name at completion." (Applied in the blueprint — §6.2 now reads "name at reassembly.")
 
 ### 4.1 Encrypted variant (v0.3, opt-in — reverses DEC-1; v0.4 adds Argon2id)
 
@@ -237,7 +237,7 @@ A CRC-32 collision or a maliciously injected part cannot cause a *silently wrong
 
 ## 10. Conformance & test vectors
 
-`shared/test-vectors/` is the executable contract. Both `web/` and `ios/` MUST pass it in CI. Because gzip is non-deterministic across implementations, vectors are **two-tier**:
+`shared/test-vectors/` is the executable contract. `web/` (sender + PWA receiver) MUST pass it in CI; a future native `ios/` must too. Because gzip is non-deterministic across implementations, vectors are **two-tier**:
 
 ```
 shared/test-vectors/
@@ -271,7 +271,7 @@ Per blueprint DEC-2, the security-review pass runs at the protocol stage. Findin
 
 | Concern | Assessment | Stance / action |
 |---------|-----------|-----------------|
-| **Confidentiality** | **None in v1, by decision (DEC-1).** The QR animation is readable by any line-of-sight camera or screen recorder; `name`/`media_type` leak in the header too. | Accepted for v1; U2 scope narrowed (blueprint §2). Opt-in passphrase encryption is the **v0.3** release — designed in [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md). **Ordering correction:** it slots in *after* gzip (**compress-then-encrypt** — ciphertext is incompressible, so gzip must run first) and encrypts the metadata header too; the earlier "between file and gzip" phrasing is refined there. Transport framing (UR/MUR/Bytewords/QR) is unchanged. |
+| **Confidentiality** | **None by default (plaintext), by decision DEC-1 — but opt-in passphrase encryption shipped (v0.3).** For a plaintext transfer the QR animation is readable by any line-of-sight camera or screen recorder, and `name`/`media_type` leak; an encrypted transfer seals both. | Accepted for v1; U2 scope narrowed (blueprint §2). Opt-in passphrase encryption is the **v0.3** release — designed in [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md). **Ordering correction:** it slots in *after* gzip (**compress-then-encrypt** — ciphertext is incompressible, so gzip must run first) and encrypts the metadata header too; the earlier "between file and gzip" phrasing is refined there. Transport framing (UR/MUR/Bytewords/QR) is unchanged. |
 | **File integrity** | Strong. SHA-256 file-acceptance gate (§7) makes silent corruption/undetected tampering infeasible; CRC-32 is only a transport aid and is never trusted for acceptance. | No change. Keep SHA-256 mandatory and end-gated. |
 | **Frame injection / DoS** | An attacker who can place QR codes in the receiver's view can inject parts with a forged matching `checksum`, causing failed reassembly or wasted effort. They **cannot** cause a wrong file to be *accepted* (SHA-256 gate). | Accepted as a DoS-only risk; the receiver already treats verification failure as *Failed → keep scanning / restart*. Document that the receiver must not get wedged on injected parts (bounded state, §9). |
 | **Decompression bomb** | A small `compression=1` payload could inflate to exhaust memory. | **Mitigated in-protocol** by the `orig_size` bound + hard cap (§9). Mandatory. |
@@ -298,5 +298,5 @@ Both implement the *same* MUR spec and pass the same upstream vectors, so a part
 - **To `docs/web/architecture.md`:** QR-generation library choice; `CompressionStream` usage; canvas render loop at the §6 presentation parameters; single-file offline packaging (OQ-9, chosen); pin `@ngraveio/bc-ur` version.
 - **To `docs/ios/architecture.md`:** minimum iOS version (`OQ-3`); camera capture + QR-decode API; SwiftUI surfaces for the §6.2 states; share-sheet export; pin `URKit` version.
 - **To `04-roadmap.md`:** the parameter-sweep harness that tunes fragment size / rate (`OQ-4`); the two-tier test-vector generation; M0 browser-receiver prototype uses `@ngraveio/bc-ur` to validate this protocol before any native work (`OQ-8`).
-- **Back to `00-blueprint.md` (minor edit):** reconcile §6.2 "file name appears immediately" → "size and progress immediately; name at reassembly" (§4 here). Non-breaking; queued so the blueprint and protocol don't drift.
+- **Back to `00-blueprint.md`:** §6.2 reconciled — "file name appears immediately" now reads "size and progress immediately; name at reassembly" (§4 here). Applied.
 ```

@@ -1,6 +1,6 @@
 # Blink-Drop Blueprint — Review Comments
 
-> **📎 Historical (2026-07-07).** A point-in-time review of blueprint **v0.2**. Its findings were applied (v0.3), and the blueprint has since moved to **v0.5** (post PWA-pivot). Kept for the record — do not read as the current spec.
+> **📎 Historical (2026-07-07).** A point-in-time review of blueprint **v0.2**. Its findings were applied (v0.3), and the blueprint has since moved to **v0.6** (post PWA-pivot + encryption + resume). Kept for the record — do not read as the current spec.
 
 | | |
 |---|---|
