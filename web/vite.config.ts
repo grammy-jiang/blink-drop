@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { cspPlugin } from "./vite-csp";
 
 // Main build → the GitHub Pages site: two pages (index.html = sender,
 // receiver.html = the installable PWA receiver). Dev stays at "/"; the
@@ -25,11 +26,12 @@ export default defineConfig(({ mode }) => ({
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: { globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"] },
     }),
+    cspPlugin(),
   ],
   build: {
     target: "es2022",
