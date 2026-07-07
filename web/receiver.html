@@ -30,12 +30,17 @@
       }
       #app { flex: 1; display: flex; }
       .brand { font-size: 1.25rem; font-weight: 700; margin: 0; }
+      /* Identical centering to the sender's .content: margin:auto centers the
+         content in both axes at ANY resolution and is overflow-safe (collapses
+         to a scrollable top-aligned layout when content exceeds the viewport,
+         instead of clipping). */
       .screen {
-        flex: 1;
+        margin: auto;
+        width: 100%;
+        max-width: 640px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
         gap: 1rem;
         padding: 1.2rem;
         text-align: center;
