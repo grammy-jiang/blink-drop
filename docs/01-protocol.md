@@ -106,6 +106,41 @@ Notes:
 
 **Metadata availability (reconciliation with blueprint §6.2).** A single fragment is raw message bytes and is *not* independently CBOR-decodable, so `name`/`media_type` become readable only once the whole message assembles. However, `messageLen` (≈ compressed size) is in *every* part, so the receiver shows a **real byte-size and progress denominator from the first captured part**; the **filename/type appear at reassembly**. Blueprint §6.2's "file name … appear immediately" should be read as "size and progress immediately; name at completion." (Minor blueprint edit tracked — see §13.)
 
+### 4.1 Encrypted variant (v0.3, opt-in — reverses DEC-1)
+
+When the sender supplies a passphrase, the message is the encrypted envelope
+(design + rationale: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md);
+architecture `blink-drop-architecture-update.md` §U2). Everything below the
+message — MUR parts (§5), Bytewords, QR — is **unchanged**; encryption is
+transparent to transport.
+
+```
+message    = [ outer, ciphertext ]          ; still a 2-element dCBOR array
+outer      = {                              ; CLEARTEXT — readable before decryption
+  0: 1,                                      ; envelope version = encrypted (absent ⇒ plaintext)
+  6: { 1:"pbkdf2-sha256", 2:iter, 3:salt(16B), 4:"aes-256-gcm", 5:nonce(12B) },
+}
+ciphertext = AES-256-GCM(key, nonce, inner, aad = dCBOR(outer))
+inner      = [ meta, payload ]               ; the §4 plaintext message, sealed
+meta       = { 1:name, 2:media_type, 3:orig_size, 4:sha256, 5:compression }
+key        = PBKDF2-HMAC-SHA-256(passphrase, salt, iter)
+```
+
+- **compress-then-encrypt.** gzip runs first (§8), then AES-GCM — ciphertext is
+  incompressible, so §2's layer order is *file → gzip → encrypt → envelope*, not
+  "between file and gzip."
+- **Metadata sealed.** `name`/`media_type`/`orig_size`/`sha256`/`compression` sit
+  inside `inner`, so they no longer leak (unlike the plaintext header). The
+  cleartext `outer` carries only KDF/cipher parameters + the version marker.
+- **Discriminator.** Key `0` is present only when encrypted; a plaintext header
+  (keys 1–5, no key 0) is byte-for-byte unchanged and fully backward-compatible.
+- **AAD.** `dCBOR(outer)` is authenticated (not encrypted), binding
+  salt/nonce/iterations to the ciphertext — no silent parameter downgrade.
+- **Two integrity checks on open** (§7): the AES-GCM tag (wrong passphrase or
+  tamper → fail closed, file withheld) **and** the SHA-256 gate on the decrypted,
+  decompressed bytes. The decompression-bomb bound (§9) reads `orig_size` from the
+  *decrypted* `meta`.
+
 ## 5. The part (MUR) and the UR string
 
 Blink-Drop uses the standard MUR part with **no modification**. Before Bytewords, each part is CBOR:
@@ -218,6 +253,12 @@ Vector set MUST include: a tiny text file (single fragment, `seqLen = 1`), a fil
 ## 11. Security review (DEC-2)
 
 Per blueprint DEC-2, the security-review pass runs at the protocol stage. Findings and stances:
+
+> **Re-run for v0.3 (2026-07-07).** The encrypted envelope (§4.1) is a wire-format
+> change, so DEC-2 was re-run — full checklist + results in
+> `blink-drop-architecture-update.md` §U2.5 (compress-then-encrypt, AAD binding,
+> nonce uniqueness, fail-closed AEAD, no-persist passphrase, bomb-guard on the
+> decrypted size — all passed). The confidentiality row below is updated accordingly.
 
 | Concern | Assessment | Stance / action |
 |---------|-----------|-----------------|

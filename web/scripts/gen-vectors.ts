@@ -54,6 +54,54 @@ async function framingVector(name: string, input: FileInput, maxFragmentLength: 
   console.log(`framing/${name}: ${parts.length} part(s), message ${message.length}B`);
 }
 
+interface EncParams {
+  passphrase: string;
+  salt: Uint8Array;
+  nonce: Uint8Array;
+  iterations: number;
+}
+
+// Encrypted framing vector (docs/07 §6). Pins salt+nonce+passphrase+iterations so
+// message.cbor.hex is byte-exact and reproducible — a future Swift impl must
+// produce the identical encrypted bytes. params.json carries everything needed
+// to regenerate it (these credentials are TEST-ONLY).
+async function framingVectorEncrypted(
+  name: string,
+  input: FileInput,
+  maxFragmentLength: number,
+  enc: EncParams,
+): Promise<void> {
+  const opts = { passphrase: enc.passphrase, salt: enc.salt, nonce: enc.nonce, iterations: enc.iterations };
+  const message = await buildMessage(input, opts);
+  const parts = systematicQrParts(message, maxFragmentLength);
+  const dir = await outDir("framing", name);
+  await writeFile(new URL("message.cbor.hex", dir), `${hex(message)}\n`);
+  await writeFile(new URL("parts.txt", dir), `${parts.join("\n")}\n`);
+  await writeFile(
+    new URL("params.json", dir),
+    `${JSON.stringify(
+      {
+        urType: "blink-drop",
+        maxFragmentLength,
+        seqLen: parts.length,
+        name: input.name,
+        mediaType: input.mediaType,
+        encrypted: true,
+        kdf: "pbkdf2-sha256",
+        cipher: "aes-256-gcm",
+        iterations: enc.iterations,
+        saltHex: hex(enc.salt),
+        nonceHex: hex(enc.nonce),
+        passphrase: enc.passphrase,
+        plaintextHex: hex(input.bytes),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  console.log(`framing/${name} (encrypted): ${parts.length} part(s), message ${message.length}B`);
+}
+
 async function roundtripVector(name: string, input: FileInput): Promise<void> {
   const dir = await outDir("roundtrip", name);
   await writeFile(new URL("input.bin", dir), input.bytes);
@@ -83,6 +131,12 @@ const inputs = {
 
 await framingVector("vec-01-hello", inputs.hello, 600);
 await framingVector("vec-02-multi", inputs.multi, 200);
+await framingVectorEncrypted("vec-04-encrypted", inputs.hello, 600, {
+  passphrase: "blink-drop test vector passphrase",
+  salt: new Uint8Array(16).fill(0x5a),
+  nonce: new Uint8Array(12).fill(0x6b),
+  iterations: 4096,
+});
 await roundtripVector("vec-01-hello", inputs.hello);
 await roundtripVector("vec-02-binary", inputs.binary);
 await roundtripVector("vec-03-incompressible", inputs.incompressible);
