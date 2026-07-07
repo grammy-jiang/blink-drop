@@ -3,6 +3,22 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.9.6 — 2026-07-08
+
+Unified, resolution-proof centering for both pages.
+
+### Fixed
+
+- **The sender and receiver now center identically at any resolution.** The
+  receiver used `.screen { flex: 1; justify-content: center }` — a *different*
+  centering mechanism from the sender's `.content { margin: auto }`, and one that
+  **clips** instead of scrolls when content is taller than the viewport. Switched
+  the receiver to the same **`margin: auto`** pattern, so both pages share one
+  centering shell. Verified centered (content-block offset 0,0, no scroll) at
+  1440×900, **2048×2127** (the reporter's screen), 3440×1440 (ultrawide), and
+  480×2000 (tall-narrow); overflow-safe (scrolls, never clips, when content
+  exceeds the viewport).
+
 ## 0.9.5 — 2026-07-08
 
 Fix the iOS full-height layout (revert the v0.9.4 `svh` mistake).
@@ -458,6 +474,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.9.6]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.6
 [0.9.5]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.5
 [0.9.4]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.4
 [0.9.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.3
