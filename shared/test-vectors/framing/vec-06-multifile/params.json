@@ -1,0 +1,16 @@
+{
+  "urType": "blink-drop",
+  "maxFragmentLength": 600,
+  "seqLen": 2,
+  "multifile": true,
+  "files": [
+    {
+      "name": "hello.txt",
+      "mediaType": "text/plain"
+    },
+    {
+      "name": "data.bin",
+      "mediaType": "application/octet-stream"
+    }
+  ]
+}

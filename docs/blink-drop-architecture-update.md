@@ -30,6 +30,7 @@
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-2 | Decision reversal (feature) | §12, §13, §14, §17, §22, §23, §26, §27; ADR-0007 amended, ADR-0010 new | **DEC-1 reversed**: opt-in passphrase encryption shipped (v0.3). See the Update-2 addendum + `docs/07-implementation-plan-v0.3-encryption.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-3 | Feature (KDF option) + CSP change | §17 (CSP/SG), §22; ADR-0010 amended, ADR-0011 new | Argon2id **opt-in** KDF (v0.4); `'wasm-unsafe-eval'` added to CSP. See the Update-3 addendum + `docs/09-implementation-plan-argon2.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-4 | Feature (resume) + data-at-rest | §10, §14, §17; ADR-0012 new | Receiver resume across restart; partial stored **encrypted at rest** (v0.6). See the Update-4 addendum + `docs/11-implementation-plan-resume.md`. |
+| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-5 | Feature (multi-file) + wire change | §4.2, §12, §14, §17; ADR-0013 new | Multi-file transfer (v0.7): per-file verify + individual Web Share; DEC-2 re-run. See the Update-5 addendum + `docs/13-implementation-plan-multifile.md`. |
 
 ---
 
@@ -487,3 +488,60 @@ the stored blob is ciphertext (no readable parts) and the key is non-extractable
 **Architecture Update Required? — Yes, applied by this addendum (update-4).** Read
 the base design as patched by §5 (update-1), §U2.3 (update-2), §U3.2 (update-3),
 and §U4.2 (update-4). Fold all into a canonical document at the next `materialize`.
+
+---
+
+## Update-5 (2026-07-07): Multi-file transfer (v0.7) — wire-format change
+
+> Reverses "single file per transfer". The single-file and encrypted formats are
+> **byte-for-byte unchanged**; encryption wraps multi-file transparently. Full
+> design: [`13-implementation-plan-multifile.md`](13-implementation-plan-multifile.md).
+
+### U5.1 Accepted decision and source
+
+| Field | Value |
+|-------|-------|
+| Decision | **Native multi-file envelope** (D1, user-confirmed 2026-07-07) — send N files together; verify + share each individually |
+| Driver | Files land individually on iOS (no unzip); per-file verification |
+| Cost | A wire-format change → **DEC-2 security-review re-run** (§U5.4) |
+| Reversibility | Medium — the discriminator + payload-list are isolated in `core/envelope.ts`; single-file path untouched |
+
+### U5.2 Changes (patch the base design)
+
+- **§4.2 protocol:** `manifest{0:2}` + payload-list; the top-level key `0`
+  discriminates single / encrypted / multi-file.
+- **§12 contracts:** `buildFilesMessage` / `openFilesMessage` (→ `DecodedFile[]`);
+  the sender takes N files, the receiver returns N. Export via **multi-file Web
+  Share** (`navigator.share({ files })`) with a per-file download fallback.
+- **§14 state model:** the receiver's Complete card lists N files (**Share all /
+  Save all**); single-file card unchanged.
+- **§17 security:** per-file SHA-256 gate + a **total** decompression cap +
+  `MAX_FILE_COUNT`; filenames rendered via `textContent` / DOM nodes (no XSS);
+  encryption hides the individual file names.
+
+### U5.3 ADR
+
+**ADR-0013 — Multi-file via manifest + payload-list (new).** *Status:* accepted
+(user-confirmed 2026-07-07); implemented v0.7. *Decision:* a multi-file message is
+`[ manifest{0:2}, [ [meta,payload]… ] ]`; each entry is the single-file body, so
+per-file gzip/SHA-256/bomb-bound reuse the existing path; encryption is
+shape-agnostic; a single file is byte-identical to before (back-compat).
+*Consequences:* per-file + total + count bounds; a pre-v0.7 receiver fails closed on
+a multi-file message. *Alternatives rejected:* zip-bundle (simpler, no wire change,
+but the receiver hands off one archive to unpack).
+
+### U5.4 Security review (DEC-2 re-run — wire-format change)
+
+| Check | Result |
+|-------|--------|
+| Per-file SHA-256 gate | ✔ each file independently verified; one bad file fails the open |
+| Bomb bound | ✔ per-file (finishOpen) **and** total decompressed cap |
+| Discriminator | ✔ manifest key 0=2 can't be confused with single (no keys 1–5) or encrypted (0=1) |
+| Encryption × multi | ✔ inner is shape-agnostic; AAD unchanged; file names sealed |
+| Count / malformed | ✔ `MAX_FILE_COUNT` cap; strict payload-list validation, fails closed |
+| XSS | ✔ hostile filenames rendered via `textContent` / DOM, never innerHTML |
+
+### U5.5 Verdict
+
+**Architecture Update Required? — Yes, applied by this addendum (update-5).** Read
+the base design as patched by §5, §U2.3, §U3.2, §U4.2, and §U5.2.
