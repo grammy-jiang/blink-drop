@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { cspPlugin } from "./vite-csp";
 
 // Main build → the GitHub Pages site: two pages (index.html = sender,
 // receiver.html = the installable PWA receiver). Dev stays at "/"; the
@@ -30,6 +31,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: { globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"] },
     }),
+    cspPlugin(),
   ],
   build: {
     target: "es2022",
