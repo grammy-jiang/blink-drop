@@ -1,60 +1,73 @@
-# Blink-Drop — Implementation Plan (v0.7: Multi-file transfer)
+# Blink-Drop — Implementation Plan (v0.7: Multi-file transfer, native envelope)
 
 | | |
 |---|---|
-| **Status** | Draft v0.1 — **for review before implementation** |
+| **Status** | Draft v0.2 — **D1 resolved: native multi-file envelope (user-confirmed 2026-07-07)** |
 | **Date** | 2026-07-07 |
-| **Target release** | **v0.7.0** (new capability) |
-| **Scope** | Send **several files in one transfer**. Reverses the blueprint's "single file per transfer" (§9 In) / "multi-file" (§9 Out). Sender selects/drops N files; the receiver reconstructs and hands them off. |
-| **Sources** | `01-protocol.md` §4 envelope; `07`/`09` encryption; `blink-drop-architecture-update.md`; `12-security-audit-v0.6.md` (the wire format was just audited — a reason to prefer *not* changing it). |
+| **Target release** | **v0.7.0** (new capability + wire-format change) |
+| **Scope** | Send **several files in one transfer**, each independently verified; the receiver shares them **individually** (multi-file Web Share). Reverses the blueprint's "single file per transfer" (§9 In) / "multi-file" (§9 Out). |
+| **Sources** | `01-protocol.md` §4 envelope; `07`/`09` encryption; `12-security-audit-v0.6.md`. **Reopens the wire format → a DEC-2 security-review re-run is required (T6).** |
 
-> **Plan for review — no code yet.** **D1 is the crux and genuinely yours:** bundle the files into a single archive and reuse the existing (audited) pipeline unchanged, or extend the wire envelope to carry multiple files natively. They trade UX niceness against wire-format risk. Confirm D1 (and the rest of §2), then I implement.
+> **D1 chosen: native multi-file envelope** (per-file UX over the simpler zip bundle). This is a wire-format change; the plaintext single-file and encrypted formats stay **byte-for-byte unchanged**, and encryption wraps multi-file transparently.
 
 ---
 
 ## 1. Goal
 
-Let a user pick (or drag-drop) **multiple files** and transfer them together, instead of one at a time. The product targets small files, so this is "send me these 3 configs / 4 photos," not bulk sync.
+Pick/drag **multiple files** → transfer together → the receiver verifies each and hands them off as **separate files** (they land individually on iOS via `navigator.share({ files: [...] })`, no unzip). Small-file target; the receiver cap applies per file and to the total.
 
-## 2. Decisions for review
+## 2. Decisions (resolved)
 
-| # | Decision | Options | Recommendation |
-|---|----------|---------|----------------|
-| **D1** | **How to carry N files** | **(A) Bundle-as-archive** — the sender zips the selected files into one archive and sends it through the *existing, unchanged, just-audited* envelope; the receiver saves/shares the archive. **(B) Native multi-file envelope** — extend the wire format to carry a list of files; the receiver reconstructs each and can share them individually. | **(A) Bundle-as-archive.** Reuses the entire proven + security-audited pipeline with **no wire change and no DEC-2 re-run**; encryption/Argon2/resume all keep working unmodified (they see one opaque payload). Smallest surface for a security tool. Trade-off: the receiver hands off **one archive** the user unpacks, rather than N separate files. See §3/§4 for (A); Appendix A sketches (B) if you prefer per-file UX. |
-| **D2** | Archive format + lib (if A) | **`fflate`** (tiny, zero-dep, pure-JS zip; inlines into the offline single-file sender) · `CompressionStream` (can't — it gzips a stream, not a multi-entry archive) · store-only tar (no dep, but no dedup and unusual on iOS) | **`fflate` zip** — ~8 KB, pure JS (no wasm/blob), well-used; produces a standard `.zip` iOS Files unzips natively. Use **store or low-level deflate** inside the zip since the envelope already gzips the whole thing (avoid double-compression cost). |
-| **D3** | Sender input | Multi-select **and** multi-file drop (`<input multiple>` + `dataTransfer.files`) · single only | **Multi-select + multi-drop.** Reuse the existing drop zone; accept N files; show the list + a total size. |
-| **D4** | Receiver hand-off (A) | Save/share the single archive (name it clearly, e.g. `blink-drop-bundle-<n>-files.zip`) · try to unpack in-app | **Share/save the archive.** In-app unzip + multi-file Web Share is essentially option (B) — keep it simple; the OS/Files handles the zip. Show "N files · total size" on the result card. |
-| **D5** | Size / count limits | Bound the **combined** size against the receiver cap; cap the file count | The **sum** of files (post-zip) is what flows, so the existing soft-ceiling (>2 MB) + hard (>8 MB receiver refuses) apply to the archive. Add a small **max file count** (e.g. 50) + reuse `describeSize` on the archive size. |
-| **D6** | Single-file behaviour | One file → still send it raw (not zipped) · always zip | **One file → raw (unchanged).** Only zip when the user picks ≥ 2 files, so single-file transfers are byte-for-byte unchanged and un-surprising. |
+| # | Decision | Choice |
+|---|----------|--------|
+| **D1** | Carry N files | **Native multi-file envelope** (user-confirmed). Files verified + shared individually. |
+| **D2** | Envelope shape | A **manifest + payload-list** variant, discriminated by header key `0` (see §3). Single-file + encrypted shapes unchanged. |
+| **D3** | Encryption × multi-file | **Transparent** — the multi-file structure becomes the AES-GCM `inner`; the passphrase seals the whole set (and hides the individual file names). No change to the crypto/AAD. |
+| **D4** | Sender input | Multi-select (`<input multiple>`) + multi-file drop → `FileInput[]`; show the file list + total. |
+| **D5** | Receiver hand-off | Multi-file result card (list N files); **Share all** via `navigator.share({ files })` + per-file Save; download-link fallback (share one, then next) where multi-file share is unsupported. |
+| **D6** | Single file | 1 file → the **existing single-file envelope, unchanged** (only ≥ 2 files use the multi-file shape). |
+| **D7** | Limits | Per-file bomb bound (existing) **plus a total-decompressed cap** across files; a max file count (e.g. 32). |
 
-## 3. Design (option A — bundle-as-archive, recommended)
+## 3. Envelope design (extends `01-protocol.md` §4)
 
-- **Sender:** on ≥ 2 files, `fflate.zipSync({ [name]: bytes, … })` (store/low deflate) → one `Uint8Array` → the **existing** `buildMessage` path (optionally encrypted) → animated QR. On 1 file, unchanged. `name` = `blink-drop-bundle-<n>-files.zip`, `mediaType = application/zip`.
-- **Receiver:** unchanged transport/verify/encryption/resume — it receives one verified file (the zip) and shares/saves it via the existing Web Share / download. The result card reads "Bundle · N files · <size>". iOS Files unzips it.
-- **Encryption:** unchanged — the zip is the payload, so a passphrase encrypts the whole bundle (metadata = the bundle name only; individual names are inside the encrypted zip → an extra privacy win).
-- **No protocol/wire change; no security-review re-run** (the payload is opaque bytes, exactly as today). fflate is a new *sender-only* runtime dep; confirm it inlines cleanly into `dist-sender` (like hash-wasm).
+Discriminator is the top-level first-element map key `0`: **absent → single plaintext (unchanged); `1` → encrypted; `2` → multi-file.**
 
-## 4. Tasks (option A)
+```
+single plaintext (unchanged):  [ header{1:name,2:media,3:size,4:sha,5:comp}, payload ]
+encrypted (unchanged):         [ outer{0:1, 6:enc-params}, ciphertext ]
+multi-file plaintext (NEW):    [ manifest{0:2}, [ [meta_1,payload_1], … , [meta_n,payload_n] ] ]
+multi-file encrypted (NEW):    [ outer{0:1, 6:enc-params}, ciphertext ]
+                                 where inner = the multi-file-plaintext bytes above
+```
 
-1. **T1 — dep + bundle helper:** add `fflate`; `web/src/core/bundle.ts` (or `ui/`) `zipFiles(files) → { bytes, name }`, pure + unit-tested; confirm no external asset in `dist-sender`.
-2. **T2 — sender multi-input:** `<input multiple>` + multi-file drop; collect a file list; zip when ≥ 2; reuse `describeSize` on the archive; a max-count guard (D5); show the file list + total.
-3. **T3 — receiver result copy:** detect `application/zip` bundle name → "Bundle · N files"; otherwise unchanged. (No new state; hand-off unchanged.)
-4. **T4 — tests:** unit (zip round-trips through build/open; single-file stays raw); browser (drop 3 files → transfer → receiver shows bundle → share).
-5. **T5 — docs:** blueprint §9 (multi-file Out→In), `web/architecture.md` sender note, CHANGELOG; bump 0.6.2 → 0.7.0. No protocol/security-review change.
-6. **T6 — on-device** (user): send 3 files → iPhone receives the zip → unzip in Files.
+- Each `[meta_i, payload_i]` is exactly the existing single-file body (`meta` = the §4 header; `payload` = gzip-or-store). So per-file **gzip, SHA-256 gate (SG-1), and bomb bound (SG-2) reuse the existing code path** verbatim.
+- **Encryption is unchanged and shape-agnostic:** `inner` is "the message to seal" — it may be `[meta,payload]` (single) or `[manifest{0:2}, [...]]` (multi). Decrypt → decode `inner` → dispatch on its key-0. AAD (the cleartext outer) is untouched.
+- **Backward/forward compat:** a pre-v0.7 receiver opening a multi-file message finds `manifest{0:2}`, no keys 1–5, and fails cleanly (never mis-accepts). Single-file transfers between any versions are identical.
 
-## 5. Out of scope
-- Per-file individual Web Share / in-app unzip (that is option B / a later step).
-- Folder-structure preservation beyond what a flat zip gives.
-- Streaming/huge bundles — the small-file target + 8 MB receiver cap still apply to the *combined* size.
+## 4. Core API
 
-## 6. Release checklist (v0.7.0)
-1. Branch `feat/v0.7-multifile` → T1–T5 → PR (CI green) → merge.
-2. Regression: biome, tsc, tests, PWA + **single-file sender** builds (confirm fflate inlines, no external asset).
-3. Bump `web` 0.6.2 → 0.7.0 (+ lockfile); CHANGELOG.
+- `buildFilesMessage(inputs: FileInput[], opts): Promise<Uint8Array>` — 1 input → identical to `buildMessage` (single); ≥ 2 → the multi-file shape; encryption applies to the whole (opts unchanged).
+- `openFilesMessage(message, opts): Promise<DecodedFile[]>` — returns **all** files (single → length 1, multi → N), each SHA-256-verified. `openMessage` (single) stays for back-compat/tests.
+- Total cap: sum of `orig_size` across files bounded (reject a multi-file whose declared total exceeds a hard total), plus per-file bomb bound as today.
+
+## 5. Tasks (ordered)
+
+1. **T1 — protocol §4.2 spec:** freeze the multi-file envelope (manifest key 0=2; payload-list; encryption wraps it; per-file + total bounds).
+2. **T2 — core:** `buildFilesMessage` / `openFilesMessage`; a `manifest` marker in types; per-file verify (reuse `finishOpen`); total-decompressed cap; unknown/oversized/malformed multi-file arrays fail closed. Single + encrypted single paths unchanged.
+3. **T3 — vectors + unit tests:** a byte-exact multi-file framing vector; tests (2- and 3-file round-trip plaintext + encrypted; one hostile file in the set fails only that open; total-cap rejection; single-file byte-identical to before).
+4. **T4 — sender UX:** `<input multiple>` + multi-file drop → `FileInput[]`; file-list + total display; `describeSize` on the total; max-count guard.
+5. **T5 — receiver UX:** `openFilesMessage`; multi-file result card (N files); **Share all** (`navigator.share({ files })`) + per-file Save + fallback; `share.ts` gains a multi-file share.
+6. **T6 — security review (DEC-2 re-run) + docs:** re-run for the new wire shape (per-file SHA-256 gate; per-file + total bomb bound; discriminator can't confuse single decode; encryption-wraps-multi; strict malformed handling) → record in `01-protocol.md` §11 + a new architecture **update-5** + ADR; blueprint §9 (multi-file Out→In); CHANGELOG; bump 0.6.2 → 0.7.0.
+7. **T7 — on-device** (user): send 3 files → iPhone → each lands individually via the share sheet.
+
+## 6. Out of scope
+- Folder-structure / nested paths (flat file set only).
+- Per-file *resume* granularity (resume still persists the whole partial, unchanged).
+- Streaming/huge bundles — the small-file target + the receiver cap (now per-file **and** total) still apply.
+
+## 7. Release checklist (v0.7.0)
+1. Branch `feat/v0.7-multifile` → T1–T6 → PR (CI green) → merge.
+2. Regression: biome, tsc, tests (single + multi, plaintext + encrypted, vectors), PWA + single-file sender builds.
+3. Bump `web` 0.6.2 → 0.7.0 (+ lockfile); CHANGELOG; **DEC-2 re-run recorded**.
 4. Tag `v0.7.0` + GitHub release; Pages redeploys.
-5. T6 — user confirms a 3-file transfer on the iPhone.
-
-## Appendix A — option B (native multi-file envelope), if you prefer per-file UX
-
-Extend §4 to a multi-file message (e.g. `[ [meta_1..meta_n], [payload_1..payload_n] ]` with a version marker), receiver reconstructs + SHA-256-verifies each file and shares them via `navigator.share({ files: [File, …] })` (Web Share supports multiple files). **Costs:** a wire-format change → `01-protocol.md` §4 amendment + **DEC-2 security-review re-run** (mirroring encryption/Argon2), more envelope + receiver code, and a new architecture update note. **Benefit:** files land individually on iOS (no unzip), and each is independently verified. Choose this only if the unzip step in (A) is unacceptable.
+5. T7 — user confirms a 3-file transfer on the iPhone.
