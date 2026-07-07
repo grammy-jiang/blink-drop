@@ -1,20 +1,40 @@
 import { defineConfig } from "vite";
-import { viteSingleFile } from "vite-plugin-singlefile";
+import { VitePWA } from "vite-plugin-pwa";
 
-// Single-file offline build (OQ-9): everything inlined into one blink-drop.html
-// that runs from a saved file on a disconnected machine (R-OFFLINE).
-// Test config lives in vitest.config.ts (kept separate to avoid the dual-vite
-// type clash between vite and vitest's bundled vite).
-export default defineConfig({
-  plugins: [viteSingleFile()],
-  // bc-ur references `global`; map it to globalThis for the browser. (Buffer is
-  // supplied by src/polyfill.ts, imported first in each entry.)
-  define: {
-    global: "globalThis",
-  },
+// Main build → the GitHub Pages site: two pages (index.html = sender,
+// receiver.html = the installable PWA receiver). Dev stays at "/"; the
+// production build uses the project-site base "/blink-drop/".
+// The single-file offline sender is a separate build (vite.config.sender.ts).
+export default defineConfig(({ mode }) => ({
+  base: mode === "production" ? "/blink-drop/" : "/",
+  // bc-ur references `global`; map it to globalThis for the browser.
+  define: { global: "globalThis" },
+  plugins: [
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["icons/apple-touch-icon.png"],
+      manifest: {
+        name: "Blink-Drop",
+        short_name: "Blink-Drop",
+        description: "Receive files via animated QR codes — scan, verify, share.",
+        theme_color: "#111827",
+        background_color: "#111827",
+        display: "standalone",
+        start_url: "receiver.html",
+        scope: ".",
+        icons: [
+          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
+      workbox: { globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"] },
+    }),
+  ],
   build: {
     target: "es2022",
-    assetsInlineLimit: 100_000_000,
-    cssCodeSplit: false,
+    rollupOptions: {
+      input: { main: "index.html", receiver: "receiver.html" },
+    },
   },
-});
+}));
