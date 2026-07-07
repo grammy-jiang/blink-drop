@@ -3,6 +3,27 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.7.1 — 2026-07-07
+
+Reliable multi-file delivery on iOS.
+
+### Added
+
+- **"Save .zip" for multi-file receives.** The multi-file result card now offers
+  **Save .zip** — the N verified files bundled into one archive — alongside
+  **Share all**. iOS Files saves and unzips a single `.zip` cleanly, where
+  multi-file Web Share and sequential per-file downloads are unreliable on iOS.
+  Colliding filenames are de-duplicated so none is dropped.
+
+### Notes
+
+- Receiver-only: **no wire, protocol, encryption, or security change.** The `.zip`
+  is built client-side (`fflate`, pure-JS, no wasm) from the already-verified
+  bytes. `fflate` stays **out of** the single-file offline sender bundle
+  (`dist-sender/`), which remains dependency-clean. Single-file receives are
+  unchanged (direct **Save**). Docs consistency pass folded in (protocol §4.2
+  discriminator + KDF/seqLen bounds, roadmap/blueprint/arch/ux multi-file notes).
+
 ## 0.7.0 — 2026-07-07
 
 Multi-file transfer.

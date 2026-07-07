@@ -5,6 +5,8 @@
 > **⚠️ Encryption update (v0.3, 2026-07-07).** Opt-in passphrase encryption **shipped** (DEC-1 reversed). The "no confidentiality / no-privacy-claims / Future story" notes below (§3, §4 non-goals, §8 UXD-6, §14, US-F1) are **superseded**: the receiver now has a **passphrase-prompt → wrong-passphrase (loud, file withheld) → 🔒 verified** flow, and the sender an optional passphrase field with honest-limits copy. Full UX + design: [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md) §7.
 >
 > **⚠️ Resume update (v0.6, 2026-07-07).** The receiver gains a **Resumable** boot state (offer *Resume (X%)* / *Start fresh* when an interrupted transfer was persisted) and a **Resuming** transient (replay saved parts, then scan). The partial is encrypted at rest. This **supersedes** the "no resume in v1" statements below (§6.2 receiver states, §14 state model, §15 recovery). Design: [`11-implementation-plan-resume.md`](11-implementation-plan-resume.md).
+>
+> **⚠️ Multi-file update (v0.7, 2026-07-07).** A transfer can carry **several files**, not just one. This **supersedes** the single-file framing below wherever it implies exactly one file: the sender drop zone accepts **multi-select / multi-drop** (§6.1 item 1), and the receiver **Complete** card gains a **multi-file variant** — an **N-file list** with **Share all** (individual Web Share) and **Save .zip** (one bundled archive, the iOS-reliable path) instead of Share/Save (§6.2 item 6). **Each file is SHA-256-verified independently** before it is exposed; a single bad file fails loud with all files withheld. Design: [`13-implementation-plan-multifile.md`](13-implementation-plan-multifile.md) + [`14-implementation-plan-zip-fallback.md`](14-implementation-plan-zip-fallback.md).
 
 ## Contents
 
@@ -125,7 +127,7 @@ Two surfaces. The **iOS Receiver carries ~80% of the design weight** (the failur
 ### 6.1 Web Sender (desktop browser) — lean
 
 A single-screen flow with no navigation:
-1. **Drop zone** (empty state) — drag a file or click to pick; a one-line note that it works offline and nothing is uploaded.
+1. **Drop zone** (empty state) — drag **one or more files** or click to pick (multi-select); a one-line note that it works offline and nothing is uploaded. *(v0.7 — see banner.)*
 2. **Plan** (Loaded) — filename, size (and compressed size), frame count, **estimated transfer time**, shown *before* playing.
 3. **Prepared** — brief "preparing frames…" if perceptible.
 4. **Playing** — the animation is the dominant element; a **loop-cycle counter** and **elapsed time**; two controls only: **rate** and **scale**; a one-line self-cue: *"Keep playing until your phone shows Verified."*
@@ -141,7 +143,7 @@ Camera-first, single primary screen with light guidance and clear terminal state
 3. **Collecting** — a **progress ring** showing a *real* fraction of a known total, plus a live collection-rate; the target frame stays for aiming.
 4. **Stalled overlay** (operational) — when progress stops, **escalating generic guidance** appears (see §15): "hold steady" → "move closer or reduce glare" → "ask the sender to slow down or enlarge". The guidance is *generic*, not sensor-diagnosed (the app cannot tell glare from distance).
 5. **Reconstructing / Verifying** — brief "assembling…" / "verifying…".
-6. **Complete → Result card** (confirmed decision): a card with **name, size, type, and a verified ✓ badge**, and three actions — **Share** (iOS share sheet), **Save to Files**, **Discard**. The file is exposed only here, only after the SHA-256 gate.
+6. **Complete → Result card** (confirmed decision): a card with **name, size, type, and a verified ✓ badge**, and three actions — **Share** (iOS share sheet), **Save to Files**, **Discard**. The file is exposed only here, only after the SHA-256 gate. *(v0.7 multi-file variant — see banner: an **N-file list** with **Share all** / **Save .zip** / Discard, every file independently verified.)*
 7. **Failed** — a **loud** state: the file is **not** available; a plain message ("Couldn't verify the file — nothing was saved"); actions **Keep scanning** / **Restart**. Never "accept anyway".
 
 ---

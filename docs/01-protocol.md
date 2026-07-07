@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.1 + encrypted-envelope amendments (§4.1 — v0.3 encryption, v0.4 Argon2id) |
+| **Status** | Draft v0.1 + envelope amendments (§4.1 — v0.3 encryption, v0.4 Argon2id; §4.2 — v0.7 multi-file) |
 | **Date** | 2026-07-07 |
 | **Depends on** | `00-blueprint.md` (v0.6) — requirements R-SUBSET, R-SELFDESC, R-META, R-INTEGRITY, R-DEDUPE, R-SESSION, R-ADJUST, R-OFFLINE |
 | **Governs** | `web/` — the sender **and** the PWA receiver (native `ios/` is deferred). This document is the *only* thing the two sides share besides `shared/test-vectors/`. A change here is a change to both. |
@@ -31,7 +31,7 @@ Deferred to architecture (not decided here): minimum iOS version (`OQ-3` → `do
 
 Blink-Drop adopts **Uniform Resources (UR)** — the Blockchain Commons encoding used in air-gapped hardware wallets — and its **Multipart UR (MUR)** fountain extension. Adopting UR means the hardest parts (fountain coding, part framing, cross-part binding, reassembly, reference-tested codecs on both platforms) are provided by mature libraries; Blink-Drop supplies only the file-level envelope (metadata header, compression, cryptographic verification) and the display/capture loop.
 
-**One file = one UR message. One UR part = one QR frame.** The sender emits an endless stream of UR parts (systematic first, then fountain-mixed) and renders each as one QR code. The receiver captures parts in any order, and the UR decoder reconstructs the message once enough distinct parts arrive.
+**One transfer = one UR message (one file, or several — §4.2). One UR part = one QR frame.** The sender emits an endless stream of UR parts (systematic first, then fountain-mixed) and renders each as one QR code. The receiver captures parts in any order, and the UR decoder reconstructs the message once enough distinct parts arrive.
 
 Mapping to the blueprint requirements, all satisfied by UR/MUR + a thin file envelope:
 
@@ -73,7 +73,7 @@ The middle three layers (dCBOR message ⇄ UR parts ⇄ Bytewords) are **entirel
 
 ## 3. Terminology (precise, to kill the §5/§7 ambiguity from blueprint review)
 
-- **Message** — the complete dCBOR structure for one file (§4). What UR transports.
+- **Message** — the complete dCBOR structure for a transfer: one file (§4), or several (§4.2). What UR transports.
 - **Fragment / partition** — the message split into `seqLen` fixed-size source blocks. **Fragment size is fixed when the transfer starts.**
 - **Part** — one MUR unit (§5): a systematic fragment (`seqNum ≤ seqLen`) or a fountain XOR-mix (`seqNum > seqLen`). One part → one QR frame.
 - **Symbol version** — the QR size (module count), 1–40. **Determined by the fixed fragment size** (the encoder picks the minimum version that holds one part). Therefore *also fixed* for the session.
@@ -117,7 +117,7 @@ transparent to transport.
 ```
 message    = [ outer, ciphertext ]          ; still a 2-element dCBOR array
 outer      = {                              ; CLEARTEXT — readable before decryption
-  0: 1,                                      ; envelope version = encrypted (absent ⇒ plaintext)
+  0: 1,                                      ; discriminator: 1 = encrypted (absent ⇒ single plaintext §4; 2 ⇒ multi-file §4.2)
   6: { 1:kdf-id, 2:work, 3:salt(16B), 4:"aes-256-gcm", 5:nonce(12B) },
 }
 ciphertext = AES-256-GCM(key, nonce, inner, aad = dCBOR(outer))
@@ -132,8 +132,9 @@ key        = KDF(passphrase, salt, work)     ; KDF chosen by kdf-id (below)
 - **Metadata sealed.** `name`/`media_type`/`orig_size`/`sha256`/`compression` sit
   inside `inner`, so they no longer leak (unlike the plaintext header). The
   cleartext `outer` carries only KDF/cipher parameters + the version marker.
-- **Discriminator.** Key `0` is present only when encrypted; a plaintext header
-  (keys 1–5, no key 0) is byte-for-byte unchanged and fully backward-compatible.
+- **Discriminator.** The top-level first-element map key `0` selects the variant:
+  **absent** ⇒ single plaintext (§4, keys 1–5, byte-for-byte unchanged and fully
+  backward-compatible); `0:1` ⇒ encrypted (this section); `0:2` ⇒ multi-file (§4.2).
 - **AAD.** `dCBOR(outer)` is authenticated (not encrypted), binding the KDF id +
   its params + salt/nonce to the ciphertext — no silent parameter downgrade.
 - **KDF variants** (key 1 = `kdf-id`, key 2 = `work`):
@@ -144,7 +145,8 @@ key        = KDF(passphrase, salt, work)     ; KDF chosen by kdf-id (below)
     pages add `'wasm-unsafe-eval'` to `script-src` (egress unchanged). Design:
     [`09-implementation-plan-argon2.md`](09-implementation-plan-argon2.md).
   An **unknown `kdf-id` fails closed** — a build without a given KDF never
-  mis-accepts.
+  mis-accepts. The `work` cost is **clamped** to `MAX_PBKDF2_ITERATIONS` /
+  `MAX_ARGON2` before derivation, so a hostile header can't force unbounded work (§9).
 - **Two integrity checks on open** (§7): the AES-GCM tag (wrong passphrase or
   tamper → fail closed, file withheld) **and** the SHA-256 gate on the decrypted,
   decompressed bytes. The decompression-bomb bound (§9) reads `orig_size` from the
@@ -256,7 +258,8 @@ A CRC-32 collision or a maliciously injected part cannot cause a *silently wrong
 ## 9. Safety bounds (baked into the protocol, not left to implementers)
 
 - **Decompression-bomb guard.** `header.orig_size` is declared up front. The receiver MUST refuse to inflate beyond `orig_size` (and beyond a hard absolute cap, e.g. the blueprint's out-of-scope threshold), aborting to *Failed* if the gzip stream tries to exceed it. Without this, a tiny malicious payload could exhaust receiver memory.
-- **Allocation bounds.** `messageLen` and `seqLen` (from any part) let the receiver pre-validate sizes before allocating; absurd values → reject the session.
+- **Allocation bounds.** `messageLen` and `seqLen` (from any part) let the receiver pre-validate sizes before allocating; absurd values → reject the session. The UR `seqLength` is capped at `MAX_SEQ_LEN` and out-of-range parts are dropped before assembly.
+- **KDF-cost clamp (v0.6.2).** Attacker-controlled KDF `work` from the cleartext `outer` header (§4.1) is clamped to sane ceilings — `MAX_PBKDF2_ITERATIONS`, or `MAX_ARGON2 {m,t,p}` — *before* key derivation, so a hostile envelope cannot force unbounded CPU/memory (same resource-exhaustion class as the decompression-bomb guard). Origin: [`12-security-audit-v0.6.md`](12-security-audit-v0.6.md).
 - **Malformed input is a failure, not a crash.** Invalid Bytewords, non-conforming dCBOR, header missing a required key, or a media type / name that is not well-formed → drop the part or fail the transfer cleanly. Strict at the boundary (blueprint's "crash early / distrust input").
 
 ## 10. Conformance & test vectors

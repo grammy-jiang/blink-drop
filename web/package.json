@@ -1,7 +1,7 @@
 {
   "name": "blink-drop-web",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "Blink-Drop web sender — offline animated-QR file transfer (sender half). See ../docs.",
   "scripts": {
@@ -23,6 +23,7 @@
   "dependencies": {
     "@ngraveio/bc-ur": "^1.1.13",
     "buffer": "^6.0.3",
+    "fflate": "^0.8.3",
     "hash-wasm": "^4.12.0",
     "jsqr": "^1.4.0",
     "process": "^0.11.10",
