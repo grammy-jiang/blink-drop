@@ -3,6 +3,26 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.7.0 — 2026-07-07
+
+Multi-file transfer.
+
+### Added
+
+- **Send several files in one transfer.** Multi-select or drop multiple files on
+  the sender; the receiver **verifies each** (SHA-256) and shares them
+  **individually** via the OS share sheet (multi-file Web Share), with a per-file
+  download fallback. Encryption seals the whole set and hides the individual file
+  names. A single-file transfer is **byte-for-byte unchanged**.
+
+### Protocol / security
+
+- New multi-file envelope (`manifest{0:2}` + payload-list, protocol §4.2); the
+  single-file and encrypted formats are unchanged and interoperate. **DEC-2
+  security review re-run** for the new wire shape (per-file **and** total
+  decompression bounds, a file-count cap, XSS-safe filename rendering;
+  architecture update-5).
+
 ## 0.6.2 — 2026-07-07
 
 ### Security
@@ -197,6 +217,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.7.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.7.0
 [0.6.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.2
 [0.6.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.1
 [0.6.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.0

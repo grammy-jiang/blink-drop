@@ -16,11 +16,13 @@ export {
 export { bytesEqual, sha256 } from "./digest";
 export {
   type BuildOptions,
+  buildFilesMessage,
   buildMessage,
   DigestMismatchError,
   isEncryptedMessage,
   MalformedMessageError,
   type OpenOptions,
+  openFilesMessage,
   openMessage,
   PassphraseRequiredError,
   parseMessage,
@@ -29,7 +31,14 @@ export { DecompressionOverflowError, gunzip, gzip } from "./gzip";
 export * from "./types";
 export { Assembler, makeEncoder, qrPartStream, systematicQrParts } from "./ur";
 
-import { type BuildOptions, buildMessage, type OpenOptions, openMessage } from "./envelope";
+import {
+  type BuildOptions,
+  buildFilesMessage,
+  buildMessage,
+  type OpenOptions,
+  openFilesMessage,
+  openMessage,
+} from "./envelope";
 import { DEFAULT_MAX_FRAGMENT_LENGTH, type DecodedFile, type FileInput } from "./types";
 import { Assembler, systematicQrParts } from "./ur";
 
@@ -56,4 +65,25 @@ export async function decodeQrPartsToFile(qrParts: Iterable<string>, opts: OpenO
   }
   if (!assembler.isSuccess) throw new Error("QR parts did not reconstruct a complete message");
   return openMessage(assembler.message(), opts);
+}
+
+// Multi-file variants (docs/13). encodeFilesToQrParts takes N files (1 file is
+// byte-identical to encodeFileToQrParts). decodeQrPartsToFiles returns every file.
+export async function encodeFilesToQrParts(
+  inputs: FileInput[],
+  maxFragmentLength: number = DEFAULT_MAX_FRAGMENT_LENGTH,
+  opts: BuildOptions = {},
+): Promise<string[]> {
+  const message = await buildFilesMessage(inputs, opts);
+  return systematicQrParts(message, maxFragmentLength);
+}
+
+export async function decodeQrPartsToFiles(qrParts: Iterable<string>, opts: OpenOptions = {}): Promise<DecodedFile[]> {
+  const assembler = new Assembler();
+  for (const part of qrParts) {
+    assembler.receiveQr(part);
+    if (assembler.isComplete) break;
+  }
+  if (!assembler.isSuccess) throw new Error("QR parts did not reconstruct a complete message");
+  return openFilesMessage(assembler.message(), opts);
 }
