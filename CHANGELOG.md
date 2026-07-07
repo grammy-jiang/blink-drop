@@ -3,6 +3,20 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.9.2 — 2026-07-08
+
+Multi-file: share the `.zip` through the OS share sheet.
+
+### Changed
+
+- **The multi-file "Share" action now shares a single `.zip` via the OS share
+  sheet** — it was "Share all", which tried to share the files *individually*
+  (unreliable on iOS, so it only ever downloaded). Sharing **one** zip is the
+  reliable path — a single-file Web Share works on iOS where multi-file does not
+  — so on iPhone the files now reach Messages / Mail / AirDrop instead of only
+  landing in Files. Button relabelled **Share .zip**; **Save .zip** (direct
+  download) stays. Found in real-device (iPhone) testing.
+
 ## 0.9.1 — 2026-07-08
 
 Concentrate the page content — title joins the centered group.
@@ -390,6 +404,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.9.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.2
 [0.9.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.1
 [0.9.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.0
 [0.8.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.3

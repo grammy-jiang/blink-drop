@@ -513,8 +513,9 @@ and §U4.2 (update-4). Fold all into a canonical document at the next `materiali
 - **§12 contracts:** `buildFilesMessage` / `openFilesMessage` (→ `DecodedFile[]`);
   the sender takes N files, the receiver returns N. Export via **multi-file Web
   Share** (`navigator.share({ files })`) with a per-file download fallback.
-- **§14 state model:** the receiver's Complete card lists N files (**Share all /
-  Save .zip**, the latter added in v0.7.1); single-file card unchanged.
+- **§14 state model:** the receiver's Complete card lists N files (**Share .zip /
+  Save .zip** — v0.7.1 zip fallback; v0.9.2 made Share bundle+share the zip via
+  the OS share sheet, the iOS-reliable single-file Web Share); single-file card unchanged.
 - **§17 security:** per-file SHA-256 gate + a **total** decompression cap +
   `MAX_FILE_COUNT`; filenames rendered via `textContent` / DOM nodes (no XSS);
   encryption hides the individual file names.
