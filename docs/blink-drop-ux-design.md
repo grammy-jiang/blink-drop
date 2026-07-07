@@ -1,5 +1,7 @@
 # Blink-Drop — UX Design
 
+> **⚠️ Pre-pivot surface note (2026-07-07).** The receiver shipped as an **installable PWA**, not a native iOS app. Read every "iOS Receiver / SwiftUI / AVFoundation / ShareLink / .fileExporter / Xcode" reference below as its **PWA equivalent**: **getUserMedia + jsQR** over HTTPS, **Web Share API + download fallback**, install via the browser. The **state model, journeys, honest-progress, verified-gate, stall guidance, and result card are unchanged** — only the surface and share/export APIs differ. Pivot delta: [`blink-drop-architecture-update.md`](blink-drop-architecture-update.md).
+
 ## Contents
 
 1. [Generation Metadata](#1-generation-metadata)
@@ -177,7 +179,7 @@ Low-risk, inferred; recorded for review (none blocks the design).
 | UXA-4 | After Share/Save/Discard, the receiver returns to Ready to scan another | low | flow closure |
 | UXA-5 | Success = subtle haptic + the verified card; failure = distinct haptic + loud visual | low | §16 |
 | UXA-6 | Sender exposes rate + scale as the only controls; fragment size is not user-adjustable | low | protocol §6 / R-ADJUST |
-| UXA-7 | MVP-0 UX is minimal/developer-facing (the throwaway browser receiver is a proof, not a product surface) | low | roadmap M0 |
+| UXA-7 | MVP-0 UX was minimal/developer-facing; the browser receiver was later **promoted to the shipped PWA receiver** (no longer a throwaway proof) | low | roadmap M0 |
 | UXA-8 | Filename shown as "receiving…" until reassembly, then resolves (size/ETA shown from first part) | low | protocol §4 |
 
 ---
@@ -521,7 +523,7 @@ No `architecture --mode reconcile` run is needed. Should implementation surface 
 - **Start testable:** **E2E-1** (core round-trip) is the first test to stand up — CI-suitable, deterministic, gates MVP-0. Then the two CI-suitable security gates: **E2E-4** (SG-1 verify-withhold) and **E2E-6** (SG-3 offline/no-egress).
 - **Release-gating stories:** US-S1/S3/S4, US-R1/R2/R4/R6/R7 (and their ACs). US-R6/R7 encode the two mandatory security behaviours (verified-only exposure; loud-safe failure).
 - **Confirmed decisions to build to:** solo-primary copy + sender self-cue; result-card-first terminal; light active guidance with generic escalating stall tips.
-- **Phase split:** MVP-0 = US-S1 + US-R10 + E2E-1/E2E-2 (protocol proof). MVP-1 = the native receiver stories + sender play/adjust.
+- **Phase split:** MVP-0 = US-S1 + US-R10 + E2E-1/E2E-2 (protocol proof). MVP-1 = the receiver stories **as a PWA** (getUserMedia/jsQR + Web Share) + sender play/adjust — shipped in v0.1.0.
 - **Do not add:** confidentiality/privacy UI (DEC-1; a Future story), localization, any second app surface.
 - **Next stage:** hand these stories + E2E seeds to the (hand-rolled) implementation-plan; it turns E2E seeds into concrete test tasks and orders the build against `04-roadmap.md`.
 

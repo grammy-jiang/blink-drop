@@ -1,5 +1,7 @@
 # Blink-Drop — iOS Primer (zero to device)
 
+> **⚠️ Status: DEFERRED (2026-07-07).** The v0.1 receiver shipped as an **installable PWA** (no Mac required). Native iOS is on hold *precisely because no Mac is available*. This is the **future-native** build guide — follow it if/when a Mac exists. See [`../blink-drop-architecture-update.md`](../blink-drop-architecture-update.md).
+
 | | |
 |---|---|
 | **Status** | Draft v0.1 |
