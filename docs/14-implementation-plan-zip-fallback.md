@@ -18,7 +18,7 @@ Keep **"Share all"** (individual multi-file Web Share) as the primary action whe
 | # | Decision | Choice |
 |---|----------|--------|
 | **D1** | Zip library | **`fflate`** — tiny, pure-JS, wasm-free (base64-free); **receiver-only**, so it lands in the PWA bundle, **not** the single-file sender (confirm in T1). `zipSync({ [name]: bytes })`. |
-| **D2** | UX | Multi-file card only. Actions: **Share all** (Web Share, primary) · **Save .zip** (bundle) · Discard. Single-file card unchanged. |
+| **D2** | UX | Multi-file card only. Actions: **Share all** (Web Share, primary) · **Save .zip** (bundle) · Discard. Single-file card unchanged. *(Superseded v0.9.2: "Share all" → **Share .zip**, which shares the one bundled zip via the OS share sheet — multi-file Web Share proved unreliable on iOS in real-device testing, but a single-file share of the zip works.)* |
 | **D3** | Zip contents | The **decoded, verified** file bytes (post-SHA-256). Store or default deflate — the files were already gzipped over the wire; a normal deflate zip is fine. Name: `blink-drop-<n>-files.zip`. |
 | **D4** | Duplicate names | Zip entry keys are filenames; if two files share a name, **dedupe** (`name (2).ext`) so none is dropped. |
 

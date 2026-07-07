@@ -16,7 +16,7 @@ import {
   type ResumePartial,
   save as saveResume,
 } from "../receiver/resume.js";
-import { downloadFile, shareOrDownloadMany } from "../receiver/share.js";
+import { downloadFile, shareOrDownload, shareOrDownloadMany } from "../receiver/share.js";
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
 const params = new URLSearchParams(location.search);
@@ -301,7 +301,7 @@ function main(): void {
               : ""
           }
           <div class="actions">
-            <button type="button" id="share" class="primary">${single ? "Share" : "Share all"}</button>
+            <button type="button" id="share" class="primary">${single ? "Share" : "Share .zip"}</button>
             <button type="button" id="save">${single ? "Save" : "Save .zip"}</button>
             <button type="button" id="discard" class="ghost">Discard</button>
           </div>
@@ -327,7 +327,17 @@ function main(): void {
     const items = files.map((f) => ({ bytes: f.bytes, name: safeName(f.header.name), mediaType: f.header.mediaType }));
     const shareResult = app.querySelector("#shareresult") as HTMLElement;
     (app.querySelector("#share") as HTMLButtonElement).addEventListener("click", async () => {
-      const r = await shareOrDownloadMany(items);
+      // Single file → share it directly. Multiple files → share ONE .zip through
+      // the OS share sheet: a single-file Web Share is reliable on iOS (multi-file
+      // Web Share is not), so this is what actually reaches Messages/Mail/AirDrop
+      // instead of only downloading to Files.
+      const r = single
+        ? await shareOrDownloadMany(items)
+        : await shareOrDownload(
+            zipFiles(items.map((i) => ({ name: i.name, bytes: i.bytes }))),
+            `blink-drop-${files.length}-files.zip`,
+            "application/zip",
+          );
       shareResult.textContent = r === "cancelled" ? "" : r === "shared" ? "Shared." : "Saved to downloads.";
     });
     (app.querySelector("#save") as HTMLButtonElement).addEventListener("click", async () => {
