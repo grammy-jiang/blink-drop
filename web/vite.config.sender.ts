@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
+import { cspPlugin } from "./vite-csp";
 
 // Single-file offline sender (OQ-9, R-OFFLINE): everything inlined into one
 // portable blink-drop.html that runs from a saved file on a disconnected
@@ -8,7 +9,7 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 export default defineConfig({
   base: "./",
   define: { global: "globalThis" },
-  plugins: [viteSingleFile()],
+  plugins: [viteSingleFile(), cspPlugin()],
   build: {
     outDir: "dist-sender",
     target: "es2022",

@@ -1,7 +1,7 @@
 {
   "name": "blink-drop-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Blink-Drop web sender — offline animated-QR file transfer (sender half). See ../docs.",
   "scripts": {
@@ -31,6 +31,7 @@
     "@biomejs/biome": "2.5.2",
     "@types/node": "^22.20.0",
     "@types/qrcode-generator": "^1.0.6",
+    "jsdom": "^29.1.1",
     "sharp": "^0.35.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
