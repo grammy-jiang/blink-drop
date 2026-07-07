@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
+  buildMessage,
   decodeQrPartsToFile,
   encodeFileToQrParts,
   type FileInput,
@@ -42,6 +43,43 @@ describe("test vectors — tier 1 (framing, byte-exact)", () => {
       expect(actual).toEqual(expected);
     });
   }
+});
+
+// Tier 1 (encrypted) — the encrypted envelope is byte-exact and reproducible
+// from pinned salt+nonce+passphrase+iterations. A future Swift impl must emit the
+// identical message.cbor.hex and parts.txt (docs/07 §6).
+describe("test vectors — tier 1 (encrypted framing, byte-exact)", () => {
+  it("framing/vec-04-encrypted: rebuilds the exact encrypted message + parts, and decrypts back", async () => {
+    const name = "vec-04-encrypted";
+    const p = JSON.parse(await readText(`framing/${name}/params.json`)) as {
+      maxFragmentLength: number;
+      iterations: number;
+      saltHex: string;
+      nonceHex: string;
+      passphrase: string;
+      plaintextHex: string;
+      name: string;
+      mediaType: string;
+    };
+    const input: FileInput = { bytes: fromHex(p.plaintextHex), name: p.name, mediaType: p.mediaType };
+    const opts = {
+      passphrase: p.passphrase,
+      salt: fromHex(p.saltHex),
+      nonce: fromHex(p.nonceHex),
+      iterations: p.iterations,
+    };
+
+    const message = await buildMessage(input, opts);
+    expect(hex(message)).toBe((await readText(`framing/${name}/message.cbor.hex`)).trim());
+
+    const expectedParts = (await readText(`framing/${name}/parts.txt`)).split("\n").filter((l) => l.length > 0);
+    expect(systematicQrParts(message, p.maxFragmentLength)).toEqual(expectedParts);
+
+    // And the pinned stream decrypts back to the original under the passphrase.
+    const parts = await encodeFileToQrParts(input, p.maxFragmentLength, opts);
+    const decoded = await decodeQrPartsToFile(parts, { passphrase: p.passphrase });
+    expect(hex(await sha256(decoded.bytes))).toBe(hex(await sha256(input.bytes)));
+  });
 });
 
 // Tier 2 — end-to-end. Encode the original with our own gzip and recover bytes
