@@ -27,6 +27,7 @@
 | Date | Base Architecture | Update Version | Change Type | Affected Base Sections | Notes |
 |------|-------------------|----------------|-------------|------------------------|-------|
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-1 | Container pivot (accepted decision) | §2.3, §4.6, §7, §9, §10, §12, §17, §18, §19, §20, §22, §23, §24; ADR-0006 superseded | Receiver: native iOS app → installable PWA (developer has no Mac) |
+| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-2 | Decision reversal (feature) | §12, §13, §14, §17, §22, §23, §26, §27; ADR-0007 amended, ADR-0010 new | **DEC-1 reversed**: opt-in passphrase encryption shipped (v0.3). See the Update-2 addendum + `docs/07-implementation-plan-v0.3-encryption.md`. |
 
 ---
 
@@ -204,7 +205,8 @@ All other contracts (wire §12.1, core encode/decode §12.2/§12.3, presentation
   *receiver* trusts its HTTPS origin at load time. This is a genuine reduction of
   the "nothing but photons" purity for the receiver's first load — recorded, not
   hidden.
-- Confidentiality (DEC-1) unchanged: none in v1.
+- Confidentiality: none at update-1. **Superseded by update-2** — opt-in
+  passphrase encryption (v0.3) reverses DEC-1. See the Update-2 addendum.
 
 ## 10. Revised Deployment
 
@@ -283,3 +285,86 @@ follow-up blueprint update; flagged here so they are not lost):
 
 **Base design status:** *amended by this note* (update-1) until a `materialize`
 produces a canonical merged document.
+
+---
+
+## Update-2 (2026-07-07): Opt-in passphrase encryption — reverses DEC-1
+
+> This addendum amends the base design a second time. It is **additive and
+> opt-in**: a plaintext transfer (no passphrase) behaves exactly as before, so
+> update-1 and everything prior still hold for that path. Full design + task plan:
+> [`07-implementation-plan-v0.3-encryption.md`](07-implementation-plan-v0.3-encryption.md).
+
+### U2.1 Accepted decision and source
+
+| Field | Value |
+|-------|-------|
+| Decision | Add **opt-in, passphrase-based content confidentiality** (v0.3) |
+| Source | **Explicit user decision**, 2026-07-07 ("head to 0.3 implementation"); KDF confirmed via AskUserQuestion (PBKDF2) |
+| Driver | Reverse DEC-1's "no v1 confidentiality" now that the core product is proven; the top backlog item |
+| Reversibility | High — additive layer isolated in `web/src/core/crypto.ts`; plaintext path untouched; KDF/cipher ids are versioned envelope fields |
+
+### U2.2 What reverses
+
+- **DEC-1** ("no v1 confidentiality") → **opt-in confidentiality**. Plaintext
+  remains the default; a passphrase produces an encrypted envelope.
+- **W3** ("UI must not imply privacy") → **honesty rule retained, not dropped**:
+  the UI *may* indicate encryption (🔒 badge) but MUST state the limits — file
+  size and that a transfer happened still leak; passphrase strength is the
+  ceiling; symmetric, so no sender identity.
+- **R-4** (no-confidentiality risk) → **mitigated when a passphrase is used**;
+  unchanged (accepted) for plaintext transfers.
+
+### U2.3 Patch entries (amend the base design)
+
+| # | Base section | Change | Patched content (summary) |
+|---|--------------|--------|---------------------------|
+| P2-1 | §12 Interface contracts | AMEND | Core encode/decode gain an optional passphrase; encrypted envelope `[outer, ciphertext]` (protocol §4 delta). New error contracts: `WrongPassphraseError` (AEAD tag), `PassphraseRequiredError` (missing). |
+| P2-2 | §14 State model (receiver) | AMEND | Add **Passphrase-prompt** and **Wrong-passphrase** states (the latter distinct from `Failed`; file withheld, re-prompt). Plaintext lifecycle unchanged. |
+| P2-3 | §17.4 Secrets | REPLACE | A passphrase now exists transiently: entered in the UI, fed to PBKDF2, never stored/logged/transmitted, never in the QR. |
+| P2-4 | §17.5 Confidentiality | REPLACE | v1 "none" → **opt-in AES-256-GCM under a PBKDF2-HMAC-SHA-256 key**; metadata sealed inside the ciphertext; compress-then-encrypt. |
+| P2-5 | §17.7 Security gates | AMEND | Add **SG-7 — AEAD fail-closed**: a failed GCM tag withholds the file and never offers "accept anyway"; AAD binds KDF/cipher params (no downgrade). |
+| P2-6 | §23.7 Trust/control/transparency | AMEND | "No privacy claims" → an **honest** encryption indicator with an explicit limits line; still no overclaiming. |
+| P2-7 | §26/§27 Quality gate | AMEND | W3 reclassified: confidentiality now offered (opt-in) with honesty preserved. |
+
+### U2.4 ADR changes
+
+**ADR-0007 — Integrity + no-confidentiality: AMENDED.** The SHA-256 gate + CRC-32
+stance is unchanged; the "no v1 confidentiality" clause is **superseded by
+ADR-0010** for the opt-in encrypted path.
+
+**ADR-0010 — Opt-in passphrase encryption (new).**
+- *Status:* accepted (user-confirmed 2026-07-07); implemented in v0.3.
+- *Decision:* AES-256-GCM (AEAD) under a PBKDF2-HMAC-SHA-256 key, WebCrypto-native
+  (no wasm/library blob → offline single-file sender stays trivial); metadata
+  sealed inside the ciphertext; outer KDF/cipher params bound as AAD;
+  compress-then-encrypt.
+- *Why:* confidentiality without a dependency blob; symmetric passphrase matches
+  the human out-of-band channel.
+- *Consequences:* two integrity checks (GCM tag + SHA-256); a distinct
+  wrong-passphrase state. Honest residual leaks: ciphertext length ≈ file size,
+  transfer occurrence/timing, passphrase-strength ceiling, no sender identity.
+- *Alternatives rejected:* Argon2id/scrypt (needs wasm — breaks no-blob
+  packaging; KDF id is versioned so it can arrive later); XChaCha20-Poly1305
+  (needs a lib); public-key/recipient crypto (out of scope).
+- *Reversibility:* high — isolated module; plaintext path untouched.
+
+### U2.5 Security review re-run (DEC-2 — triggered by the wire-format change)
+
+Protocol §11 / §17.8 require re-running the review when the wire format changes;
+v0.3 changed it. Outcome:
+
+| Check | Result |
+|-------|--------|
+| compress-then-encrypt ordering | ✔ gzip before AES-GCM (ciphertext-length side channel accepted + disclosed) |
+| AAD binds all cleartext params | ✔ `cborEncode(outer)` is AAD; nonce/salt/iter downgrade breaks the tag (tested) |
+| Nonce uniqueness | ✔ fresh CSPRNG salt ⇒ fresh key per transfer; random 96-bit nonce |
+| Wrong passphrase fails closed | ✔ `WrongPassphraseError`; file withheld; no "accept anyway" (tested) |
+| Passphrase never persists/crosses a boundary | ✔ UI field → PBKDF2 only; not stored/logged/in-QR (browser-verified: filename absent from bytes) |
+| Bomb guard on decrypted size | ✔ SG-2 uses inner `orig_size` post-decrypt |
+
+### U2.6 Verdict
+
+**Architecture Update Required? — Yes, applied by this addendum (update-2).** Read
+the base design as patched by §5 (update-1) **and** §U2.3 (update-2). Fold both
+into a canonical document at the next `materialize`.
