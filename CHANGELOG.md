@@ -3,6 +3,15 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.6.1 — 2026-07-07
+
+### Fixed
+
+- **Progress percentage display.** The receiver's "Collecting …%" (and the v0.6
+  resume offer's "Resume …%") showed the raw 0–1 fraction — e.g. "0.34%" for 34% —
+  because `percentComplete` is a fraction. Now rendered as a whole percent.
+  Cosmetic; present since v0.1, most visible on large/slow transfers.
+
 ## 0.6.0 — 2026-07-07
 
 Receiver **resume across restart**. Receiver-only; no protocol or encryption change.
@@ -171,6 +180,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.6.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.1
 [0.6.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.6.0
 [0.5.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.5.0
 [0.4.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.4.0
