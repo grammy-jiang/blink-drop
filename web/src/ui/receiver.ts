@@ -301,7 +301,8 @@ function main(): void {
               : ""
           }
           <div class="actions">
-            <button type="button" id="share" class="primary">${single ? "Share" : "Share .zip"}</button>
+            <button type="button" id="share" class="primary">${single ? "Share" : "Share all"}</button>
+            ${single ? "" : `<button type="button" id="sharezip">Share .zip</button>`}
             <button type="button" id="save">${single ? "Save" : "Save .zip"}</button>
             <button type="button" id="discard" class="ghost">Discard</button>
           </div>
@@ -326,20 +327,24 @@ function main(): void {
     }
     const items = files.map((f) => ({ bytes: f.bytes, name: safeName(f.header.name), mediaType: f.header.mediaType }));
     const shareResult = app.querySelector("#shareresult") as HTMLElement;
+    // Share the file(s) individually via the OS share sheet — a single file, or
+    // "Share all" for a multi-file set (each file shared separately).
     (app.querySelector("#share") as HTMLButtonElement).addEventListener("click", async () => {
-      // Single file → share it directly. Multiple files → share ONE .zip through
-      // the OS share sheet: a single-file Web Share is reliable on iOS (multi-file
-      // Web Share is not), so this is what actually reaches Messages/Mail/AirDrop
-      // instead of only downloading to Files.
-      const r = single
-        ? await shareOrDownloadMany(items)
-        : await shareOrDownload(
-            zipFiles(items.map((i) => ({ name: i.name, bytes: i.bytes }))),
-            `blink-drop-${files.length}-files.zip`,
-            "application/zip",
-          );
+      const r = await shareOrDownloadMany(items);
       shareResult.textContent = r === "cancelled" ? "" : r === "shared" ? "Shared." : "Saved to downloads.";
     });
+    // Multi-file only: an ALTERNATIVE to "Share all" — bundle the verified files
+    // into ONE .zip and share that via the share sheet. A single-file Web Share
+    // is reliable on iOS where multi-file share is not (real-device finding), so
+    // this is the dependable way to send the set to Messages / Mail / AirDrop.
+    const shareZipBtn = app.querySelector("#sharezip") as HTMLButtonElement | null;
+    if (shareZipBtn) {
+      shareZipBtn.addEventListener("click", async () => {
+        const zip = zipFiles(items.map((i) => ({ name: i.name, bytes: i.bytes })));
+        const r = await shareOrDownload(zip, `blink-drop-${files.length}-files.zip`, "application/zip");
+        shareResult.textContent = r === "cancelled" ? "" : r === "shared" ? "Shared." : "Saved to downloads.";
+      });
+    }
     (app.querySelector("#save") as HTMLButtonElement).addEventListener("click", async () => {
       if (single) {
         await shareOrDownloadMany(items);
