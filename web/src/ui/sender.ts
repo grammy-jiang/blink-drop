@@ -1,6 +1,7 @@
 import "../polyfill.js";
 import { buildMessage, DEFAULT_MAX_FRAGMENT_LENGTH, qrPartStream, systematicQrParts } from "../core/index.js";
 import { FramePlayer } from "../player/loop.js";
+import { renderTextToCanvas } from "../qr/render.js";
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -66,6 +67,17 @@ fileInput.addEventListener("change", async () => {
   player.stop();
   player.start();
 });
+
+// Render a static QR of the receiver page URL so the phone can open the PWA by
+// scanning it — no typing a URL on the phone.
+const receiverBox = document.getElementById("receiverqrbox");
+const receiverCanvas = document.getElementById("receiverqr") as HTMLCanvasElement | null;
+if (receiverBox && receiverCanvas) {
+  renderTextToCanvas(new URL("receiver.html", location.href).href, receiverCanvas, { scale: 4, margin: 3 });
+  const cap = document.getElementById("receiverqrcap");
+  if (cap) cap.textContent = "Scan to open the receiver on your phone";
+  receiverBox.removeAttribute("hidden");
+}
 
 // Expose for automated testing / debugging.
 (window as unknown as { blinkdropSender: unknown }).blinkdropSender = { player };
