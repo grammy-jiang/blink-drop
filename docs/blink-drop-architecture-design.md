@@ -7,6 +7,8 @@
 > **⚠️ Also amended by update-3 (2026-07-07): opt-in Argon2id.** A memory-hard KDF alternative to PBKDF2 shipped (v0.4); the built pages add **`'wasm-unsafe-eval'`** to `script-src` for its WebAssembly (egress still forbidden). Treat §17.2 / §17.7 "strict `script-src` / no eval" and any "PBKDF2 only" framing as **superseded**. Details: the update note's **Update-3 addendum + ADR-0011**, and [`09-implementation-plan-argon2.md`](09-implementation-plan-argon2.md).
 >
 > **⚠️ Also amended by update-4 (2026-07-07): resume + data-at-rest.** The receiver **resumes an interrupted scan** by persisting a partial **encrypted at rest** (AES-GCM under a receiver-local non-extractable key in IndexedDB). Treat every "no durable storage" / "no resume in v1" / "no secrets stored" statement below (§1.3, §4.4, §13.4, §14.4, §17.4) as **superseded**. Details: the update note's **Update-4 addendum + ADR-0012**, and [`11-implementation-plan-resume.md`](11-implementation-plan-resume.md).
+>
+> **⚠️ Also amended by update-5 (2026-07-07): multi-file transfer.** A single transfer can now carry **several files** (v0.7), not just one; the receiver **verifies each file's SHA-256 independently** and offers **individual Web Share** or a bundled **`.zip`** (v0.7.1). Treat every "single file per transfer" statement and every singular "**the file**" below (e.g. §1.2, §4.1, §13.4) as **superseded** wherever it implies exactly one file per transfer. Details: the update note's **Update-5 addendum + ADR-0013**, and [`13-implementation-plan-multifile.md`](13-implementation-plan-multifile.md).
 
 ## Contents
 

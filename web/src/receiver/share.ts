@@ -21,7 +21,7 @@ export async function shareOrDownload(bytes: Uint8Array, name: string, mediaType
     }
   }
 
-  downloadOne(bytes, name, type);
+  downloadFile(bytes, name, type);
   return "downloaded";
 }
 
@@ -47,11 +47,11 @@ export async function shareOrDownloadMany(items: ShareItem[]): Promise<ShareResu
       // fall through to download on any other share failure
     }
   }
-  for (const i of items) downloadOne(i.bytes, i.name, i.mediaType || "application/octet-stream");
+  for (const i of items) downloadFile(i.bytes, i.name, i.mediaType || "application/octet-stream");
   return "downloaded";
 }
 
-function downloadOne(bytes: Uint8Array, name: string, type: string): void {
+export function downloadFile(bytes: Uint8Array, name: string, type: string): void {
   const url = URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type }));
   const a = document.createElement("a");
   a.href = url;

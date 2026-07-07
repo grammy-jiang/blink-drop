@@ -30,7 +30,7 @@
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-2 | Decision reversal (feature) | §12, §13, §14, §17, §22, §23, §26, §27; ADR-0007 amended, ADR-0010 new | **DEC-1 reversed**: opt-in passphrase encryption shipped (v0.3). See the Update-2 addendum + `docs/07-implementation-plan-v0.3-encryption.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-3 | Feature (KDF option) + CSP change | §17 (CSP/SG), §22; ADR-0010 amended, ADR-0011 new | Argon2id **opt-in** KDF (v0.4); `'wasm-unsafe-eval'` added to CSP. See the Update-3 addendum + `docs/09-implementation-plan-argon2.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-4 | Feature (resume) + data-at-rest | §10, §14, §17; ADR-0012 new | Receiver resume across restart; partial stored **encrypted at rest** (v0.6). See the Update-4 addendum + `docs/11-implementation-plan-resume.md`. |
-| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-5 | Feature (multi-file) + wire change | §4.2, §12, §14, §17; ADR-0013 new | Multi-file transfer (v0.7): per-file verify + individual Web Share; DEC-2 re-run. See the Update-5 addendum + `docs/13-implementation-plan-multifile.md`. |
+| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-5 | Feature (multi-file) + wire change | §4.2 (protocol), §12, §14, §17; ADR-0013 new | Multi-file transfer (v0.7): per-file verify + individual Web Share (+ `.zip` fallback v0.7.1); DEC-2 re-run. See the Update-5 addendum + `docs/13-implementation-plan-multifile.md`. |
 
 ---
 
