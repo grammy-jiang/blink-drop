@@ -17,6 +17,9 @@
       #receiverqrbox { float: right; text-align: center; margin: 0 0 1rem 1rem; max-width: 170px; }
       #receiverqr { width: 150px; height: 150px; }
       #receiverqrcap { color: #777; font-size: 0.8rem; margin-top: 0.3rem; }
+      .passrow { display: block; margin: 0.6rem 0 0.2rem; }
+      .passrow input { margin-left: 0.4rem; padding: 0.25rem 0.4rem; }
+      #passnote { min-height: 1.2em; }
     </style>
   </head>
   <body>
@@ -26,6 +29,10 @@
       <div id="receiverqrcap"></div>
     </div>
     <p class="note">Pick a file. It is processed on this machine and never uploaded. Point the phone receiver at the animation; keep it playing until the phone shows Verified.</p>
+    <label class="passrow">Passphrase (optional)
+      <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="leave blank = unencrypted" />
+    </label>
+    <div id="passnote" class="note"></div>
     <input type="file" id="file" />
     <div id="plan"></div>
     <div id="controls">

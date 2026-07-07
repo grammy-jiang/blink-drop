@@ -18,6 +18,8 @@ const rateVal = el<HTMLSpanElement>("rateVal");
 const scale = el<HTMLInputElement>("scale");
 const scaleVal = el<HTMLSpanElement>("scaleVal");
 const stopBtn = el<HTMLButtonElement>("stop");
+const passInput = el<HTMLInputElement>("pass");
+const passNote = el<HTMLDivElement>("passnote");
 
 const player = new FramePlayer(canvas, { fps: Number(rate.value), scale: Number(scale.value) });
 let seqLen = 0;
@@ -48,14 +50,25 @@ stopBtn.addEventListener("click", () => {
   statusEl.textContent = "Stopped.";
 });
 
+// Honest, non-fabricated copy: state what encryption does and does NOT hide. The
+// passphrase itself never leaves this field — it is only fed to buildMessage to
+// derive the key, never stored, never put in the QR or the plan text.
+function updatePassNote(): void {
+  passNote.textContent = passInput.value
+    ? "🔒 Encrypted — the receiver must enter this passphrase. Share it separately (not on screen). The file size and that a transfer happened are still visible."
+    : "";
+}
+passInput.addEventListener("input", updatePassNote);
+
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   if (!file) return;
-  statusEl.textContent = "Preparing…";
+  const passphrase = passInput.value || undefined;
+  statusEl.textContent = passphrase ? "Encrypting…" : "Preparing…";
   const bytes = new Uint8Array(await file.arrayBuffer());
   const input = { bytes, name: file.name, mediaType: file.type || "application/octet-stream" };
 
-  const message = await buildMessage(input);
+  const message = await buildMessage(input, { passphrase });
   seqLen = systematicQrParts(message, DEFAULT_MAX_FRAGMENT_LENGTH).length;
   // Loop the systematic parts plus a redundancy set of fountain parts (blueprint L5/§7).
   const parts = qrPartStream(message, Math.ceil(seqLen * 1.5), DEFAULT_MAX_FRAGMENT_LENGTH);
