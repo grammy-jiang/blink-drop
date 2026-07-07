@@ -100,5 +100,5 @@ Per blueprint §9: the **native iOS app** (deferred — needs a Mac), resume-acr
 
 ## Status of gates already passed
 
-- **Security review (DEC-2):** done at the protocol stage — `01-protocol.md` §11. Re-run if the wire format changes.
+- **Security review (DEC-2):** done at the protocol stage — `01-protocol.md` §11; **re-run for the v0.3 encrypted envelope** (`blink-drop-architecture-update.md` §U2.5). Re-run again if the wire format changes.
 - **Big lock-in (OQ-1):** decided — adopt UR. Everything above assumes it.

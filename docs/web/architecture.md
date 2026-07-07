@@ -119,7 +119,7 @@ Fragment size (→ symbol version) is chosen once at `Loaded` from the seed defa
 
 - **No network by construction** — CSP `connect-src 'none'`; no `fetch`/`XHR`/`WebSocket` in the codebase (lint rule). The file is never transmitted anywhere but the screen.
 - **No `eval`/dynamic code**; strict CSP `script-src`.
-- Confidentiality is out of scope for v1 by decision (DEC-1); the sender does not pretend otherwise (no "secure" claims in UI). Encryption (v1.1) will slot into `core/` between file read and gzip, without touching `qr/`, `player/`, or `ui/`.
+- Confidentiality: **opt-in passphrase encryption shipped in v0.3** (reverses DEC-1). It lives in `core/crypto.ts` + the envelope, applied **after gzip** (compress-then-encrypt — ciphertext is incompressible), without touching `qr/` or `player/`; `ui/` gains an optional passphrase field + an honest indicator (never a bare "secure" claim — size/occurrence still leak). A plaintext transfer (no passphrase) is unchanged and claims no confidentiality. Design: [`../07-implementation-plan-v0.3-encryption.md`](../07-implementation-plan-v0.3-encryption.md).
 
 ## 9. Testing
 
