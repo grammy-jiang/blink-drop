@@ -3,6 +3,17 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.8.3 — 2026-07-08
+
+Wording: reflect multi-file support on the sender.
+
+### Changed
+
+- **Drop zone now reads "Drop files, or click"** (was "Drop a file, or click").
+  The sender has accepted several files since v0.7, but the copy implied only
+  one. Meta description updated to match ("one or more files"). Verified centered
+  on both desktop (1440 px) and phone (390 px).
+
 ## 0.8.2 — 2026-07-08
 
 Fix off-center disclosure panels on the sender.
@@ -346,6 +357,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.8.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.3
 [0.8.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.2
 [0.8.1]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.1
 [0.8.0]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.8.0
