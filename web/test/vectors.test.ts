@@ -27,7 +27,7 @@ async function readBin(rel: string): Promise<Uint8Array> {
   return new Uint8Array(await readFile(new URL(rel, VECTORS)));
 }
 
-const FRAMING = ["vec-01-hello", "vec-02-multi"];
+const FRAMING = ["vec-01-hello", "vec-02-multi", "vec-06-multifile"];
 const ROUNDTRIP = ["vec-01-hello", "vec-02-binary", "vec-03-incompressible"];
 
 // Tier 1 — deterministic, byte-exact. The core must emit exactly the committed
