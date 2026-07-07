@@ -2,27 +2,99 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Blink-Drop — Receiver (M0)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Blink-Drop — Receiver</title>
+    <meta name="theme-color" content="#111827" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Blink-Drop" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <style>
-      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
-      h1 { font-size: 1.4rem; }
-      button { padding: 0.4rem 0.9rem; margin-right: 0.5rem; }
-      #progress { margin: 0.6rem 0; color: #555; font-variant-numeric: tabular-nums; }
-      #result { margin-top: 1rem; font-family: ui-monospace, monospace; font-size: 0.9rem; white-space: pre-wrap; }
-      #result a { display: inline-block; margin-top: 0.6rem; }
-      .note { color: #777; font-size: 0.9rem; }
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+      header { padding: 0.8rem 1rem; font-weight: 600; }
+      #app { flex: 1; display: flex; }
+      .screen {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 1.2rem;
+        text-align: center;
+      }
+      .hint { color: #6b7280; max-width: 32ch; }
+      .loud { font-size: 1.2rem; font-weight: 700; color: #b91c1c; }
+      .viewfinder {
+        position: relative;
+        width: min(90vw, 480px);
+        aspect-ratio: 1;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .viewfinder video { width: 100%; height: 100%; object-fit: cover; }
+      .target {
+        position: absolute;
+        inset: 12%;
+        border: 3px solid rgba(255, 255, 255, 0.85);
+        border-radius: 10px;
+        pointer-events: none;
+      }
+      .progress { font-variant-numeric: tabular-nums; font-weight: 600; }
+      .stall { color: #b45309; min-height: 1.2em; }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 1.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        align-items: center;
+        min-width: min(90vw, 360px);
+      }
+      .badge {
+        color: #047857;
+        font-weight: 700;
+        background: #ecfdf5;
+        padding: 0.2rem 0.7rem;
+        border-radius: 999px;
+      }
+      .fname { font-weight: 700; word-break: break-all; }
+      .meta { color: #6b7280; font-size: 0.9rem; }
+      .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; margin-top: 0.4rem; }
+      .shareresult { color: #6b7280; font-size: 0.9rem; min-height: 1.2em; }
+      button {
+        padding: 0.6rem 1.1rem;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      button.primary { background: #111827; color: #fff; border-color: #111827; }
+      button.ghost { border: none; background: transparent; color: #6b7280; }
+      @media (prefers-color-scheme: dark) {
+        .card { border-color: #374151; }
+        button { background: #1f2937; color: #f9fafb; border-color: #374151; }
+        button.primary { background: #2563eb; border-color: #2563eb; }
+      }
     </style>
   </head>
   <body>
-    <h1>Blink-Drop — Receiver <span class="note">(M0 throwaway browser proof)</span></h1>
-    <p class="note">Self-test proves the whole pipeline without a camera. Start camera to scan a real sender animation on your phone.</p>
-    <button type="button" id="selftest">Run self-test (no camera)</button>
-    <button type="button" id="streamtest">Run stream test (synthetic camera)</button>
-    <button type="button" id="camera">Start camera</button>
-    <div id="progress"></div>
-    <div id="cameraMount"></div>
-    <div id="result"></div>
+    <header>Blink-Drop</header>
+    <div id="app"></div>
     <script type="module" src="/src/ui/receiver.ts"></script>
   </body>
 </html>

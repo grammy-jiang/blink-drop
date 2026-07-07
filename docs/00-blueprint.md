@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.4 — design-pipeline retrofit |
+| **Status** | Draft v0.5 — receiver pivoted to PWA |
 | **Date** | 2026-07-07 |
-| **Scope** | Technology-neutral product definition: what the system does, the workflows and progress model of the two sides, and the constraints imposed by the relevant standards. No library, language, framework, or algorithm commitments — those are decided in the architecture documents (`docs/web/`, `docs/ios/`) and the protocol specification (`docs/01-protocol.md`). |
-| **Changes** | v0.4 — added **Product Experience Direction** and **Recommended Next Stages** sections so the `architecture` and `ux-design` skills consume this blueprint cleanly (hybrid design-pipeline adoption). Content consolidated from existing §2/§6/§12/§13; no decisions changed.<br>v0.3 — applied `00-blueprint-review.md`: disambiguated presentation vs. partitioning parameters (§5, §7, OQ-10); added dual-use/exfiltration posture (Risk 7) and narrowed U2's v1 confidentiality scope (§2, DEC-1); added success criteria for R-ADJUST/R-SESSION (S8/S9); reframed M0 as a delivery-path precursor (§9); added OQ dependency structure + security-review recommendation (§13); added state diagrams (§6), a Working Assumptions appendix (Appendix C), a throughput-figure explanation (§3), and headroom to S6.<br>v0.2 — workflow/progress sections expanded and grounded in prior-art review; implementation mechanisms removed from normative text; offline-sender requirement added. |
+| **Scope** | Technology-neutral product definition: what the system does, the workflows and progress model of the two sides, and the constraints imposed by the relevant standards. No library, language, framework, or algorithm commitments — those are decided in the architecture documents and the protocol specification (`docs/01-protocol.md`). |
+| **Changes** | v0.5 — **receiver pivoted from a native iOS app to an installable PWA** (developer has no Mac; iOS native dev is macOS-only). Reconciled: Product Experience Direction receiver surface, §9 (a web receiver is now the product, not an excluded throwaway), §11 S7 wording, and a new Risk 8. Full technical delta in `docs/blink-drop-architecture-update.md`; the native iOS app is deferred (its `docs/ios/*` become the future-native reference).<br>v0.4 — added **Product Experience Direction** and **Recommended Next Stages** sections so the `architecture` and `ux-design` skills consume this blueprint cleanly (hybrid design-pipeline adoption). Content consolidated from existing §2/§6/§12/§13; no decisions changed.<br>v0.3 — applied `00-blueprint-review.md`: disambiguated presentation vs. partitioning parameters (§5, §7, OQ-10); added dual-use/exfiltration posture (Risk 7) and narrowed U2's v1 confidentiality scope (§2, DEC-1); added success criteria for R-ADJUST/R-SESSION (S8/S9); reframed M0 as a delivery-path precursor (§9); added OQ dependency structure + security-review recommendation (§13); added state diagrams (§6), a Working Assumptions appendix (Appendix C), a throughput-figure explanation (§3), and headroom to S6.<br>v0.2 — workflow/progress sections expanded and grounded in prior-art review; implementation mechanisms removed from normative text; offline-sender requirement added. |
 
 ---
 
@@ -228,7 +228,7 @@ Blink-Drop ships in a sequence, not one drop. The two staged precursors below ar
 
 - Single file per transfer, soft warning above 2 MB
 - Sender: static web page, fully client-side, packageable as a self-contained offline artifact (R-OFFLINE); drag-and-drop; rate and density controls; pre-transfer time estimate; loop cycle indicator
-- Receiver: native phone app; zero-setup camera start; session lock with instant metadata; denominator-true progress; stall guidance; digest verification; share-sheet export
+- Receiver: **installable web app (PWA)** — opens in the phone browser over HTTPS, or added to the home screen; zero-setup camera start; session lock with instant metadata; denominator-true progress; stall guidance; digest verification; Web Share export
 - The full transfer-requirement set of §5
 
 ### Out (permanently excluded from v1 — not build steps)
@@ -236,8 +236,8 @@ Blink-Drop ships in a sequence, not one drop. The two staged precursors below ar
 - Encryption / passphrase protection (v1.1 candidate — see Risk 4, DEC-1)
 - Multi-file or batch transfer; resume across receiver restarts
 - Android receiver; native desktop senders
-- Receiver as a **production** web app (distinct from the throwaway M0 prototype above)
-- App Store distribution (personal sideload first)
+- **Native iOS app** (deferred — needs a Mac, which the developer lacks; `docs/ios/*` + ADR-0006 are the future-native reference. The v1 receiver is the PWA above.)
+- App Store distribution (the PWA installs via the browser's "Add to Home Screen" instead)
 - Any machine acknowledgment backchannel (e.g. receiver displaying a code the sender scans)
 - Localization
 
@@ -260,7 +260,7 @@ Measurable, testable on the target device, indoor office lighting, handheld at n
 | S4 | Joining mid-loop costs nothing beyond the not-yet-seen frames — no restart, no full-cycle wait | R-SUBSET |
 | S5 | First-time receiver: app open → actively collecting in < 10 s, with no configuration | R-SELFDESC / R-META (timing) |
 | S6 | 2 MB file completes in < 8 min — envelope sanity check, *not* a hard acceptance gate; §3 estimates ~4–6 min, so this leaves margin for the optical variability of Risk 2 | envelope sanity |
-| S7 | Sender runs from a self-contained artifact on a machine with no connectivity | R-OFFLINE |
+| S7 | **Sender** runs from a self-contained artifact on a machine with no connectivity (the **receiver** PWA works offline *after* a one-time install) | R-OFFLINE |
 | S8 | Changing rate or density mid-transfer costs zero already-collected progress — the receiver continues from where it was | R-ADJUST |
 | S9 | With two senders in view, the receiver collects only its locked session; the other session's frames are ignored | R-SESSION |
 
@@ -279,6 +279,7 @@ Measurable, testable on the target device, indoor office lighting, handheld at n
 | 5 | **Stream-coding scheme complexity/licensing** — candidate schemes differ in maturity, availability, and IP encumbrance | Explicit evaluation criterion in the protocol stage (`OQ-1`) |
 | 6 | **Solo developer new to the receiver platform** | Dedicated onboarding primer (`docs/ios/`); protocol de-risked first via the M0 browser-based prototype receiver (§9) before native work |
 | 7 | **Dual-use / data-exfiltration channel** — the air-gap-crossing property that serves U1 equally describes a channel for moving data *out* of a controlled environment, unseen by network- and USB-based monitoring (DLP) | **Stated posture, not a countermeasure.** Blink-Drop assumes an *authorized user moving their own data*; it is not designed to defeat DLP controls, and unauthorized exfiltration is explicit misuse, not a supported use case. The optical channel cannot be made incapable of misuse without destroying its legitimate purpose, so this is an *accepted, documented property*. **Natural limit:** the transfer is physically visible on a screen — observable by physical surveillance and screen-recording DLP — so it is invisible only to *network/port* monitoring, not to an observer or a screen-capture agent. Flagged for the security-review pass (§13). |
+| 8 | **PWA receiver constraints** — the receiver needs HTTPS for camera access, a one-time online install, and iOS 16.4+ for camera in an *installed* PWA; the Web Share sheet is close to but not identical to a native one | Serve over HTTPS (GitHub Pages); show a clear "open over https" message on an insecure origin; service-worker offline after first load; feature-detect Web Share with a download-link fallback. The transferred **file** never leaves the device — only the app code loads once over HTTPS. Full delta: `blink-drop-architecture-update.md`. |
 
 ## 13. Open Questions → Architecture Handoff
 
@@ -311,7 +312,7 @@ Open questions are **dependency-ordered**, not just ID-ordered. `OQ-1` (adopt an
 - **Experience thesis:** *Point your phone at a screen; the file arrives, verified — no setup, no pairing, no accounts.* The magic is the absence of ceremony.
 - **Two interaction surfaces (Target Software UX), nothing else:**
   - **Web sender** — a desktop/laptop browser page: drop a file, see the plan (size, frames, ETA), play an on-screen animation, adjust rate/scale if asked. No install, no backend.
-  - **Native iOS receiver** — a camera-first app: open → it's already scanning → progress → verified file → share sheet. Zero configuration.
+  - **Installable PWA receiver** — a camera-first web app, opened in the phone browser over HTTPS or added to the home screen: open → grant camera → scanning → progress → verified file → Web Share. Zero configuration.
   - **Explicitly no** CLI, MCP, agent, or API surface in v1. (There is no "Skill Operator UX" beyond the developer building it.)
 - **Trust, control, transparency:**
   - Honest progress by construction — the receiver shows a *real* fraction of a known total; the sender shows only time/cycles (it cannot know delivery on a one-way channel) and must never fake a delivery percentage.
@@ -319,7 +320,7 @@ Open questions are **dependency-ordered**, not just ID-ordered. `OQ-1` (adopt an
   - No confidentiality is claimed in v1 (DEC-1) — the UI must not imply the transfer is private.
 - **Human-in-the-loop:** the human *is* the acknowledgment channel (§6.4). The experience is built around three spoken cues — "got it", "it's stuck", "start over" — because the channel has no machine back-path.
 - **Failure / recovery experience:** stalls produce concrete guidance (move closer/farther, reduce glare, steady the phone; sender may slow down / enlarge); verification failure is **loud**, withholds the file, and offers keep-scanning or restart — never "accept anyway".
-- **Hands to architecture:** the two sender/receiver state machines (§6.1, §6.2), the strict two-container split (web/ios never depend on each other), the no-network constraint (R-OFFLINE), and the honest-progress + verified-only-accept rules.
+- **Hands to architecture:** the two sender/receiver state machines (§6.1, §6.2), the strict two-container split (sender and receiver stay independent), the no-network constraint (R-OFFLINE — receiver offline is post-install), and the honest-progress + verified-only-accept rules.
 
 ## Recommended Next Stages
 

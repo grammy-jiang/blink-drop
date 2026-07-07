@@ -1,0 +1,283 @@
+# Blink-Drop — Architecture Update Note
+
+> **This note amends `blink-drop-architecture-design.md` v0.1.** Until a future
+> `materialize`, read the base design **as patched by §5 (Patch Manifest) below**.
+> Only the **receiver container** changes; the sender, wire protocol
+> (`01-protocol.md`), transfer model, `web/src/core`, and `shared/test-vectors`
+> are **unchanged**.
+
+## Contents
+
+1. [Generation Metadata](#1-generation-metadata)
+2. [Resolved Input Artifacts](#2-resolved-input-artifacts)
+3. [Update Summary](#3-update-summary)
+4. [Accepted Decision and Source](#4-accepted-decision-and-source)
+5. [Patch Manifest](#5-patch-manifest)
+6. [ADR Changes](#6-adr-changes)
+7. [Revised Receiver Container and Components](#7-revised-receiver-container-and-components)
+8. [Revised Interface Contracts (receiver)](#8-revised-interface-contracts-receiver)
+9. [Revised Security and Trust Boundaries](#9-revised-security-and-trust-boundaries)
+10. [Revised Deployment](#10-revised-deployment)
+11. [Technical Risks — Added / Changed / Removed](#11-technical-risks--added--changed--removed)
+12. [Feedback Closure Matrix](#12-feedback-closure-matrix)
+13. [Blueprint Reconciliation Handoff and Update Verdict](#13-blueprint-reconciliation-handoff-and-update-verdict)
+
+## Update History
+
+| Date | Base Architecture | Update Version | Change Type | Affected Base Sections | Notes |
+|------|-------------------|----------------|-------------|------------------------|-------|
+| 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-1 | Container pivot (accepted decision) | §2.3, §4.6, §7, §9, §10, §12, §17, §18, §19, §20, §22, §23, §24; ADR-0006 superseded | Receiver: native iOS app → installable PWA (developer has no Mac) |
+
+---
+
+## 1. Generation Metadata
+
+| Field | Value |
+|-------|-------|
+| mode | `update` (applies an accepted decision into an update note; base design not overwritten) |
+| base_architecture | `docs/blink-drop-architecture-design.md` v0.1 |
+| blueprint | `docs/00-blueprint.md` v0.4 |
+| protocol (unchanged) | `docs/01-protocol.md` v0.1 |
+| update_source | Explicit user decision, 2026-07-07 |
+| topic_slug | `blink-drop` |
+| Patch entries | 13 (§5) |
+| ADRs changed | 1 superseded (ADR-0006), 1 new (ADR-0009) |
+| Architecture Update Required? | **Yes — applied by this note** |
+| skill_version | architecture (update mode); version `unknown` |
+
+## 2. Resolved Input Artifacts
+
+| Artifact | Path | Role |
+|----------|------|------|
+| Base architecture design | `docs/blink-drop-architecture-design.md` v0.1 | Document being amended |
+| Blueprint | `docs/00-blueprint.md` v0.4 | Source of intent; reconciliation flagged in §13 |
+| Protocol spec | `docs/01-protocol.md` v0.1 | Fixed constraint — unchanged |
+| iOS architecture (now deferred) | `docs/ios/architecture.md`, `docs/ios/primer.md` | Reclassified as the *future native* stage reference |
+| Proven prototype | `web/` (sender + browser receiver), `shared/test-vectors/` | The PWA receiver is built on this already-proven code |
+
+## 3. Update Summary
+
+**What:** The **receiver** changes from a *native iOS app* to an *installable
+Progressive Web App (PWA)* — a static web app that reuses `web/src/core`
+verbatim, decodes the camera with `getUserMedia` + jsQR (both already proven on
+real iPhone optics), verifies with the existing SHA-256 gate, and exports via the
+**Web Share API** (which opens the real iOS share sheet on iOS 16.4+).
+
+**Why:** A hard external constraint — the developer has **no Mac**, and native
+iOS development (Xcode, iOS SDK, code signing, SwiftUI/AVFoundation/CryptoKit) is
+macOS-only. The PWA path needs no Mac, is **buildable and testable on Linux**
+(the developer's machine, with browser automation), and runs on the target
+iPhone today over HTTPS.
+
+**Blast radius:** receiver container only. The sender, protocol, `web/src/core`,
+and test vectors are untouched. The M0 "throwaway" browser receiver is
+**promoted from prototype to the product foundation**.
+
+**Net effect on risk:** *lower* overall — the previously highest project risk
+(solo developer new to a native platform, plus untestable-in-CI camera) largely
+evaporates because the receiver is now web tech the developer already commands
+and can test locally. New, smaller risks appear (HTTPS requirement, install-once
+offline story, Web Share fidelity) — §11.
+
+## 4. Accepted Decision and Source
+
+| Field | Value |
+|-------|-------|
+| Decision | Pivot the receiver from native iOS to an installable PWA |
+| Source | **Explicit user decision**, 2026-07-07 (AskUserQuestion: "No Mac — pivot to a PWA receiver") |
+| Provenance | `user-confirmed` (explicit selection) |
+| Driver | External hard constraint: no Mac; iOS native toolchain is macOS-only |
+| Reversibility | Medium — the native iOS app is **deferred, not cancelled**; `docs/ios/*` remain the future-native reference, and `web/src/core` is language-shared groundwork. Revisit trigger: a Mac becomes available and a native app is desired. |
+
+## 5. Patch Manifest
+
+Each row patches the correspondingly-numbered base-design section. Change types:
+**REPLACE** (supersede content), **AMEND** (add/adjust), **UNCHANGED** (listed
+for cross-reference).
+
+| # | Base section | Change | Patched content (summary) |
+|---|--------------|--------|---------------------------|
+| P-1 | §2.3 MVP staging | AMEND | **MVP-1 = the PWA receiver** (scan → verify → Web Share), buildable/testable on Linux. MVP-0 unchanged. |
+| P-2 | §4.6 Team constraint | AMEND | Add the binding constraint **"no Mac"** → drives the PWA choice (was: "new to iOS, sideload via Xcode"). |
+| P-3 | §7 Tech stack (receiver row) | REPLACE | Receiver stack → **installable PWA**: vanilla TS + Vite; `web/src/core` reused verbatim; camera `getUserMedia` + jsQR; verify WebCrypto SHA-256; share **Web Share API** (fallback download link); **web app manifest + service worker**. (Sender rows unchanged.) |
+| P-4 | §9 Container view | REPLACE | The "iOS Receiver (SwiftUI)" container becomes **"PWA Receiver (browser / installed web app)"**. Two containers still; both now web-tech, still hard-separated, still sharing only `01-protocol.md` + test vectors. |
+| P-5 | §10 Component view | REPLACE | Receiver components → **Capture** (`getUserMedia` → video → canvas → jsQR), **Core** (`web/src/core`, *identical to the sender's*), **UI/State** (Ready→…→Complete/Failed, §14 unchanged), **Share** (Web Share API), **PWA shell** (manifest + service worker). |
+| P-6 | §12 Interface contracts | REPLACE (§12.4, §12.6) | §12.4 capture: `getUserMedia`/jsQR contract (was AVCaptureMetadataOutput). §12.6 export: **Web Share API** `navigator.share({files})` (was ShareLink/fileExporter). Others unchanged. See §8. |
+| P-7 | §14 State model | UNCHANGED | Receiver lifecycle states (Ready → Locked → Collecting → Reconstructing → Verifying → Complete/Failed) are identical; only the implementing tech differs. |
+| P-8 | §17 Security & egress | AMEND | Egress nuance: the PWA **app code** is fetched once over HTTPS from GitHub Pages; the **transferred file stays local** (never uploaded; Web Share is on-device). Runtime data-egress still forbidden by CSP. SG-4 (iOS no-network entitlement) → **SG-4′**: CSP `connect-src` limited to same-origin app assets only; no file egress. See §9. |
+| P-9 | §18 Failure handling | AMEND | Add: **HTTPS required** for camera (insecure origin → clear "must be opened over https" message); **camera permission denied** (same UX); **offline after install** (service-worker-cached; first load needs network). Remove the AVFoundation-throughput fallback row (native-only). |
+| P-10 | §19 Testing architecture | AMEND | The receiver is now **testable on Linux + a browser** (the untestable-in-CI camera concern shrinks): the existing `?selftest` (loopback) and `?streamtest` (`captureStream` synthetic camera) already exercise the full path; real-optics confirmed via photo decode. Add PWA-install / service-worker / Web-Share smoke checks. |
+| P-11 | §20 Deployment | REPLACE | **Static hosting on GitHub Pages (HTTPS)** at `grammy-jiang.github.io/blink-drop` (was Xcode sideload). Sender **unchanged** (single-file offline artifact; may *also* be served on Pages). See §10. |
+| P-12 | §22 Risks | AMEND | Remove native-only risks (R-3 AVCapture throughput, R-6 native-platform learning, R-7 free-account re-sign). Add PWA risks (HTTPS requirement, install-once offline, Web Share fidelity, iOS-16.4 installed-PWA camera). See §11. |
+| P-13 | §23/§24 Experience & next stages | AMEND | §23 receiver surface = **PWA** (install prompt, Web Share). §24: implementation-plan now targets the **PWA receiver**; the **native iOS app is DEFERRED** to a future stage (Mac required); `docs/ios/*` is its reference. |
+
+## 6. ADR Changes
+
+**ADR-0006 — iOS stack (SwiftUI + iOS 17 + URKit + AVFoundation): SUPERSEDED** by
+ADR-0009. Rationale for supersession: the receiver is no longer a native iOS app.
+ADR-0006 is **retained as the reference for a future native build** (not deleted;
+`Status: Superseded by ADR-0009, deferred`).
+
+**ADR-0009 — Receiver as an installable PWA (new).**
+- *Status:* accepted (user-confirmed 2026-07-07).
+- *Context:* the developer has no Mac; native iOS is macOS-only; the browser
+  receiver already works on real iPhone optics.
+- *Decision:* the receiver is a static, installable PWA (vanilla TS + Vite)
+  reusing `web/src/core`; camera via `getUserMedia`+jsQR; share via Web Share
+  API; offline via manifest + service worker; served over HTTPS (GitHub Pages).
+- *Consequences:* no Mac needed; buildable/testable on Linux; runs on the target
+  iPhone over HTTPS. Trade-offs (§11): HTTPS requirement, install-once offline,
+  Web Share ≈ (not =) native sheet, iOS-16.4+ for installed-PWA camera.
+- *Alternatives rejected:* native iOS (no Mac); cloud-Mac CI (slow, paid, no
+  local loop); design-only pause (delays shipping).
+- *Reversibility:* the native app is deferred, not cancelled; revisit if a Mac
+  appears.
+
+**Unchanged:** ADR-0001 (adopt UR/MUR), ADR-0002 (two-container split), ADR-0003
+(client-only/no backend — see §9 nuance), ADR-0004 (no AI), ADR-0005 (web sender
+stack), ADR-0007 (SHA-256 gate + no v1 confidentiality), ADR-0008 (gzip).
+
+## 7. Revised Receiver Container and Components
+
+```mermaid
+flowchart TB
+    subgraph pwa[Container: PWA Receiver — installable web app, HTTPS]
+        CAP[Capture<br/>getUserMedia → video → canvas → jsQR]
+        CORE[Core<br/>web/src/core — IDENTICAL to the sender's]
+        UI[UI / State<br/>Ready→Locked→Collecting→…→Complete/Failed §14]
+        SHARE[Share<br/>Web Share API navigator.share files]
+        SHELL[PWA shell<br/>manifest + service worker → install + offline]
+    end
+    CAP --> CORE --> UI
+    UI --> SHARE
+    SHELL -.installs/caches.- pwa
+    classDef c fill:#2f855a,stroke:#1c4532,color:#fff;
+    class pwa c;
+```
+
+- **Core is now literally shared code**, not a Swift mirror — `web/src/core`
+  runs in both the sender and the receiver. The `shared/test-vectors` still bind
+  it; there is no longer a second-language port to keep in sync (until/unless the
+  native app is revived).
+- The **hard two-container boundary (ADR-0002) still holds** conceptually
+  (sender vs receiver are separate deploy targets and entry points), though both
+  are now web tech in one repo.
+
+## 8. Revised Interface Contracts (receiver)
+
+**§12.4′ Capture (receiver).** Owner: `Capture`. **Input:** camera frames via
+`navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})` → a
+`<video>` sampled to a canvas. **Output:** deduped UR strings (jsQR) to the
+assembler. **Precondition:** **secure origin (HTTPS)** — else camera is
+unavailable. **Errors:** `InsecureContext` (not HTTPS), `PermissionDenied`,
+`NoCamera`. **Observability:** distinct-frame rate (local).
+
+**§12.6′ Export (receiver).** Owner: `Share`. **Input:** the verified file as a
+`File` object (post-SHA-256, §12.3 unchanged). **Output:** `navigator.share({
+files:[file] })` → the OS share sheet (iOS 16.4+); **fallback:** an
+object-URL download link (already built) where Web Share is unavailable.
+**Precondition:** SHA-256 passed. **Errors:** user-cancel (benign),
+`ShareUnsupported` → fallback.
+
+All other contracts (wire §12.1, core encode/decode §12.2/§12.3, presentation
+§12.5, file-input §12.7) are **unchanged**.
+
+## 9. Revised Security and Trust Boundaries
+
+- **Data-egress decision → `app_fetch_only`.** The receiver's *application code*
+  is fetched once over HTTPS from GitHub Pages (a code-load egress); the
+  *transferred file* never leaves the device (Web Share is on-device; no upload).
+  This is an honest change from the base design's `local_only`: the receiver is
+  no longer zero-infrastructure at first load. After install (service worker),
+  the app loads offline.
+- **SG-4′ (replaces SG-4):** CSP `connect-src 'self'` (same-origin app assets
+  only) — the running app makes **no data-egress network calls**; the file is
+  never transmitted. Verification: CSP present in the built receiver + lint/grep
+  for `fetch`/XHR/WebSocket beyond asset/service-worker scope. Release-blocking.
+- **SG-1 (SHA-256 gate) and SG-2 (decompression bound) unchanged** — same
+  `web/src/core`. **SG-3 (sender no-egress) unchanged.**
+- **New note — transport trust:** loading the PWA over HTTPS from GitHub Pages
+  means the app's integrity depends on that origin (TLS + GitHub). Document that
+  the *sender* remains a fully-offline artifact for the air-gapped case; the
+  *receiver* trusts its HTTPS origin at load time. This is a genuine reduction of
+  the "nothing but photons" purity for the receiver's first load — recorded, not
+  hidden.
+- Confidentiality (DEC-1) unchanged: none in v1.
+
+## 10. Revised Deployment
+
+| Container | Build | Distribute | Run |
+|-----------|-------|------------|-----|
+| Web Sender | `vite build` + single-file plugin | Copy the single `.html` (air-gap OK); *and/or* GitHub Pages | Any browser, fully offline |
+| **PWA Receiver** | `vite build` (with manifest + service worker) | **GitHub Pages (HTTPS)** `grammy-jiang.github.io/blink-drop` | Safari tab over HTTPS; or "Add to Home Screen" (installed PWA, offline after first load) |
+
+- **CI/CD:** add a GitHub Pages deploy workflow (build → publish) alongside the
+  existing test CI. Deployment topology is a single static host — no server, no
+  backend, no runtime infrastructure beyond static file serving.
+- **Sender unchanged:** the single-file offline artifact remains the primary
+  sender distribution; Pages hosting is a convenience mirror.
+
+## 11. Technical Risks — Added / Changed / Removed
+
+| Change | Risk | Impact | Mitigation |
+|--------|------|--------|------------|
+| **Added** | HTTPS required for camera | Camera dead over http | Serve on GitHub Pages (HTTPS); clear "open over https" message on insecure origin |
+| **Added** | Install-once offline | Receiver needs network for first load | Document honestly; service worker caches after first load; the *file* stays local always |
+| **Added** | Web Share fidelity | Share sheet ≈ native but not identical; Web Share support varies | Feature-detect; download-link fallback (built) |
+| **Added** | iOS installed-PWA camera needs iOS 16.4+ | Older installed PWAs can't use camera | Safari-tab path works more broadly; document min iOS |
+| **Removed** | R-3 AVCapture throughput | — | N/A (no native capture) |
+| **Removed** | R-6 native-platform learning curve | — | N/A (web tech the dev already knows) |
+| **Removed** | R-7 free-account 7-day re-sign | — | N/A (no sideload) |
+| Unchanged | R-1 throughput, R-2 optics, R-4 no-confidentiality, R-5 stream-coding, R-8 library lock-in | — | As base design |
+
+**Net:** the pivot **removes the three biggest delivery risks** and adds smaller,
+well-understood web risks.
+
+## 12. Feedback Closure Matrix
+
+| Decision requirement | Base section(s) patched | Status |
+|----------------------|-------------------------|--------|
+| Receiver must need no Mac | §7, §9, §10, §20; ADR-0009 | Closed |
+| Reuse `web/src/core` verbatim | §10, §7 | Closed |
+| Camera via getUserMedia + jsQR (HTTPS) | §12.4′, §9, §18 | Closed |
+| Verify unchanged (SHA-256) | §12.3 (unchanged), §9 SG-1 | Closed |
+| Share via Web Share API + fallback | §12.6′ | Closed |
+| Offline via manifest + service worker | §7, §10, §18 | Closed |
+| Honest egress/offline nuance | §9, §11 | Closed |
+| Deploy on GitHub Pages HTTPS | §20 | Closed |
+| Native iOS deferred, not cancelled | §6 (ADR-0006 superseded), §24 | Closed |
+| Buildable/testable on Linux | §19 | Closed |
+
+## 13. Blueprint Reconciliation Handoff and Update Verdict
+
+**Architecture Update Required? — Yes, applied by this note.** Read the base
+design as patched by §5.
+
+**Blueprint (`00-blueprint.md`) edits required** (out of this note's scope — a
+follow-up blueprint update; flagged here so they are not lost):
+
+1. **§9 MVP Boundary / Non-Goals:** "Receiver as a *production* web app" moves
+   from **Out** to **In-scope** (it *is* the product now). The M0 browser
+   receiver is no longer "throwaway."
+2. **§10 Non-Goals:** keep "not a general file-sharing tool," but the "not a
+   production web app" implication is removed for the receiver.
+3. **Product Experience Direction:** receiver surface = **installable PWA** (was
+   native iOS app); the share moment is Web Share; add an install/first-load note.
+4. **Risks:** add the HTTPS / install-once trade-off (Risk row).
+5. **Success criteria:** **S7** (self-contained offline artifact) applies to the
+   **sender**; note the **receiver's** offline is **post-install**. **S5**
+   (zero-config start) still holds (open URL → camera). No change to S1–S4, S6,
+   S8, S9.
+
+**Next stages (base §24 amended):**
+
+| Stage | Decision | Notes |
+|-------|----------|-------|
+| Blueprint update | **RUN (next, lean)** | Apply the 5 edits above |
+| implementation-plan | **RUN (after blueprint touch-up)** | Targets the **PWA receiver**; buildable on Linux |
+| Native iOS app | **DEFERRED** | Revisit when a Mac is available; `docs/ios/*` + ADR-0006 are its reference |
+| ux-design update | **DEFER / light** | Receiver stories mostly hold (states unchanged §14); surface = PWA, share = Web Share, add install/HTTPS flows — fold into the implementation-plan or a light ux touch-up |
+| architecture `materialize` | **DEFER** | Merge this note into a canonical vX when convenient |
+
+**Base design status:** *amended by this note* (update-1) until a `materialize`
+produces a canonical merged document.

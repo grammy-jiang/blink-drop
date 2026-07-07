@@ -481,3 +481,7 @@ CLAUDE.local.md
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/git,node,python,jetbrains,svelte,visualstudiocode
+
+### Blink-Drop ###
+# Single-file sender build output (dist/ is already ignored above)
+dist-sender/
