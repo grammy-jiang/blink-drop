@@ -28,7 +28,7 @@ Everything is client-side and dependency-light: bc-ur and qrcode-generator are t
 
 ## 1. Responsibilities
 
-**Does:** take a file entirely in-browser (pick or **drag-drop**) → *optionally encrypt under a passphrase (§8)* → gzip → build the dCBOR envelope → drive bc-ur to produce the endless part stream → render each part as a QR frame → loop at the chosen presentation parameters → show the pre-transfer estimate, cycle counter, controls, a **soft-ceiling warning** for large files, and a static **receiver-URL QR** (so the phone can open the PWA receiver) (blueprint §6.1).
+**Does:** take **one or several** files entirely in-browser (multi-select or **drag-drop**; multi-file → the §4.2 envelope) → *optionally encrypt under a passphrase (§8)* → gzip → build the dCBOR envelope → drive bc-ur to produce the endless part stream → render each part as a QR frame → loop at the chosen presentation parameters → show the pre-transfer estimate, cycle counter, controls, a **soft-ceiling warning** for large files, and a static **receiver-URL QR** (so the phone can open the PWA receiver) (blueprint §6.1).
 
 **Does not:** touch the network (no fetch/XHR/WebSocket — enforced, §8), persist the file, know anything about the receiver, or implement any acknowledgment path (one-way channel).
 

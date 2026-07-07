@@ -226,15 +226,16 @@ Blink-Drop ships in a sequence, not one drop. The two staged precursors below ar
 
 ### In (v1)
 
-- Single file per transfer, soft warning above 2 MB
+- One **or several** files per transfer (multi-file shipped v0.7), soft warning above ~2 MB combined
 - Sender: static web page, fully client-side, packageable as a self-contained offline artifact (R-OFFLINE); drag-and-drop; rate and density controls; pre-transfer time estimate; loop cycle indicator
 - Receiver: **installable web app (PWA)** — opens in the phone browser over HTTPS, or added to the home screen; zero-setup camera start; session lock with instant metadata; denominator-true progress; stall guidance; digest verification; Web Share export
 - **Opt-in passphrase encryption** (v0.3, reverses DEC-1) — the sender may set a passphrase; the receiver prompts for it, then shows a lock with an honest-limits note. Plaintext stays the default.
+- **Multi-file transfer** (v0.7) — send several files in one transfer; the receiver verifies each and shares them individually.
 - The full transfer-requirement set of §5
 
 ### Out (permanently excluded from v1 — not build steps)
 
-- Multi-file or batch transfer *(resume across receiver restarts shipped in v0.6 — no longer excluded)*
+- *(Multi-file transfer shipped in v0.7 and resume-across-restart in v0.6 — both moved to In-scope, no longer excluded.)*
 - Android receiver; native desktop senders
 - **Native iOS app** (deferred — needs a Mac, which the developer lacks; `docs/ios/*` + ADR-0006 are the future-native reference. The v1 receiver is the PWA above.)
 - App Store distribution (the PWA installs via the browser's "Add to Home Screen" instead)

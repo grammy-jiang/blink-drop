@@ -150,6 +150,30 @@ key        = KDF(passphrase, salt, work)     ; KDF chosen by kdf-id (below)
   decompressed bytes. The decompression-bomb bound (§9) reads `orig_size` from the
   *decrypted* `meta`.
 
+### 4.2 Multi-file variant (v0.7 — reverses "single file per transfer")
+
+Sending several files uses a **manifest + payload-list**, discriminated by the
+top-level first-element map key `0`: absent → single (§4); `1` → encrypted (§4.1);
+`2` → multi-file.
+
+```
+multi-file plaintext:  [ manifest{0:2}, [ [meta_1,payload_1], … , [meta_n,payload_n] ] ]
+multi-file encrypted:  [ outer{0:1, 6:enc}, ciphertext ]   where inner = the multi-file-plaintext bytes
+```
+
+- Each `[meta_i, payload_i]` is exactly the §4 single-file body, so per-file gzip,
+  the SHA-256 gate (SG-1), and the decompression bound (SG-2) **reuse the
+  single-file path verbatim** — the receiver reconstructs and verifies each file
+  independently and shares them individually (multi-file Web Share).
+- **Encryption is shape-agnostic (§4.1):** `inner` is "the message to seal" —
+  single `[meta,payload]` or multi `[manifest,[…]]`. The passphrase seals the whole
+  set and **hides the individual file names** (only the ciphertext length leaks).
+- **Bounds:** at most `MAX_FILE_COUNT` (32) files; the **sum** of `orig_size` is
+  bounded by the same 8 MB ceiling (SG-2, per-file **and** total).
+- **Backward compat:** a single-file transfer is byte-for-byte unchanged; a
+  pre-v0.7 receiver opening a multi-file message finds `manifest{0:2}` (no keys
+  1–5) and fails cleanly — never mis-accepts.
+
 ## 5. The part (MUR) and the UR string
 
 Blink-Drop uses the standard MUR part with **no modification**. Before Bytewords, each part is CBOR:
@@ -268,6 +292,13 @@ Per blueprint DEC-2, the security-review pass runs at the protocol stage. Findin
 > `blink-drop-architecture-update.md` §U2.5 (compress-then-encrypt, AAD binding,
 > nonce uniqueness, fail-closed AEAD, no-persist passphrase, bomb-guard on the
 > decrypted size — all passed). The confidentiality row below is updated accordingly.
+>
+> **Re-run for v0.7 (2026-07-07).** The multi-file envelope (§4.2) is a wire-format
+> change → DEC-2 re-run (`blink-drop-architecture-update.md` §U5): per-file SHA-256
+> gate + per-file **and** total decompression bound, the manifest discriminator
+> can't be confused with a single message, encryption wraps multi-file transparently
+> (AAD unchanged), file-count cap, strict malformed-list handling — all passed. Also
+> covered: the v0.6.2 KDF-cost + UR-seqLength DoS bounds (`12-security-audit-v0.6.md`).
 
 | Concern | Assessment | Stance / action |
 |---------|-----------|-----------------|

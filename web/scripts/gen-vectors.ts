@@ -12,7 +12,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import type { FileInput } from "../src/core/index.js";
-import { buildMessage, sha256, systematicQrParts } from "../src/core/index.js";
+import { buildFilesMessage, buildMessage, sha256, systematicQrParts } from "../src/core/index.js";
 
 const ROOT = new URL("../../shared/test-vectors/", import.meta.url);
 
@@ -52,6 +52,31 @@ async function framingVector(name: string, input: FileInput, maxFragmentLength: 
     )}\n`,
   );
   console.log(`framing/${name}: ${parts.length} part(s), message ${message.length}B`);
+}
+
+// Multi-file framing vector (protocol §4.2): N files → the multi-file envelope.
+// Framing is byte-exact from the captured message; a future impl must match parts.
+async function framingVectorMulti(name: string, inputs: FileInput[], maxFragmentLength: number): Promise<void> {
+  const message = await buildFilesMessage(inputs);
+  const parts = systematicQrParts(message, maxFragmentLength);
+  const dir = await outDir("framing", name);
+  await writeFile(new URL("message.cbor.hex", dir), `${hex(message)}\n`);
+  await writeFile(new URL("parts.txt", dir), `${parts.join("\n")}\n`);
+  await writeFile(
+    new URL("params.json", dir),
+    `${JSON.stringify(
+      {
+        urType: "blink-drop",
+        maxFragmentLength,
+        seqLen: parts.length,
+        multifile: true,
+        files: inputs.map((i) => ({ name: i.name, mediaType: i.mediaType })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  console.log(`framing/${name} (multi-file ×${inputs.length}): ${parts.length} part(s), message ${message.length}B`);
 }
 
 interface EncParams {
@@ -195,6 +220,7 @@ await framingVectorArgon2("vec-05-encrypted-argon2", inputs.hello, 600, {
   nonce: new Uint8Array(12).fill(0x6b),
   argon: { m: 512, t: 1, p: 1 }, // tiny for a fast, reproducible vector
 });
+await framingVectorMulti("vec-06-multifile", [inputs.hello, inputs.binary], 600);
 await roundtripVector("vec-01-hello", inputs.hello);
 await roundtripVector("vec-02-binary", inputs.binary);
 await roundtripVector("vec-03-incompressible", inputs.incompressible);
