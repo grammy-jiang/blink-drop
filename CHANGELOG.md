@@ -3,6 +3,27 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.9.5 — 2026-07-08
+
+Fix the iOS full-height layout (revert the v0.9.4 `svh` mistake).
+
+### Fixed
+
+- **Restored centered content and fixed the iOS scroll-into-empty-space.**
+  v0.9.4's `100svh` made iOS Safari render the body *shorter* than the visible
+  viewport — content pushed up with a scrollable empty area below (and the
+  earlier `100dvh` gave a roughly **2×-tall** scrollable document). Switched both
+  pages to the iOS-reliable **percentage-height** pattern: `html { height: 100% }`
+  + `body { min-height: 100% }`, which fills the visible viewport without the
+  viewport-unit (`vh`/`dvh`/`svh`) over-scroll. Content stays centered; tall
+  content (the sender's play stage) still grows and scrolls.
+
+### Notes
+
+- Verified in Chrome (both pages, mobile + desktop): content centered, document
+  height equals the viewport (no scroll). The over-scroll is iOS-Safari-specific
+  to viewport units, so confirm on the device.
+
 ## 0.9.4 — 2026-07-08
 
 Fix iOS over-scroll — the page no longer scrolls into empty space.
@@ -437,6 +458,7 @@ and an installable PWA receiver, no network/cable/cloud/pairing between them.
 - **No payload confidentiality in v0.1** (the QR is visible by design). Passphrase
   encryption is the top item for a future release.
 
+[0.9.5]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.5
 [0.9.4]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.4
 [0.9.3]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.3
 [0.9.2]: https://github.com/grammy-jiang/blink-drop/releases/tag/v0.9.2

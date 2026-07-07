@@ -15,14 +15,15 @@
          (header + centered content), tokens, buttons, and dark mode. */
       :root { color-scheme: light dark; }
       * { box-sizing: border-box; }
+      html { height: 100%; }
       body {
         font-family: system-ui, sans-serif;
         margin: 0;
-        /* svh (small viewport height) = the viewport WITH the browser toolbars
-           shown. Unlike dvh/vh, 100svh never exceeds the visible area on iOS
-           Safari, so a short page doesn't become scrollable into empty space.
-           It's a min-height, so tall content (the play stage) still grows + scrolls. */
-        min-height: 100svh;
+        /* Percentage height (via html height:100%) fills the viewport without the
+           iOS dynamic-toolbar over-scroll — and without the top-align that vh/dvh/
+           svh caused. min-height (not height) so tall content (the play stage)
+           can still grow + scroll. */
+        min-height: 100%;
         display: flex;
         flex-direction: column;
       }
