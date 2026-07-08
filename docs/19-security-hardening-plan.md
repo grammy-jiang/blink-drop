@@ -150,8 +150,10 @@ Supply-chain + gate hardening for the toolchain itself (extends D3):
   carries it. A CSP regression fails CI.
 - **CodeQL** SAST workflow (`javascript-typescript`, `security-and-quality`), on
   push/PR/weekly.
-- **`dependency-review-action`** on PRs — blocks a PR that adds a high-severity or
-  disallowed-license dependency.
+- **`dependency-review-action`** on PRs — deferred: it requires the repo's
+  Dependency Graph feature (Settings → Code security and analysis), which is not
+  enabled. npm audit + Dependabot + pinned SHAs already cover the supply chain;
+  re-add the job once Dependency Graph is on.
 - **Least privilege + hygiene** — read-only default `permissions`, per-job
   `security-events: write` only for CodeQL; `concurrency: cancel-in-progress` and
   `timeout-minutes` on every job.

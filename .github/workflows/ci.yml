@@ -74,17 +74,11 @@ jobs:
       - name: npm audit (production deps, high+)
         run: npm audit --omit=dev --audit-level=high
 
-  dependency-review:
-    name: dependency review (PR)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
-      # Blocks a PR that introduces a vulnerable or disallowed-license dependency.
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
-        with:
-          fail-on-severity: high
+  # NOTE: a `dependency-review` job (actions/dependency-review-action) was
+  # intentionally left out — it requires the repo's Dependency Graph feature
+  # (Settings → Code security and analysis), which is not enabled. npm audit +
+  # Dependabot + pinned SHAs already cover the supply chain. Re-add it once
+  # Dependency Graph is on.
 
   pre-commit:
     name: pre-commit (all hooks)
