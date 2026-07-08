@@ -7,17 +7,54 @@
       name="description"
       content="Turn one or more files into an animated QR code stream to send them to a nearby phone — processed on your machine, never uploaded. Fully offline."
     />
-    <meta name="theme-color" content="#111827" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='17' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='9' y='17' width='6' height='6' fill='%23f9fafb'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%232563eb'/%3E%3C/svg%3E" />
+    <meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141413'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23faf9f5'/%3E%3Crect x='17' y='9' width='6' height='6' fill='%23faf9f5'/%3E%3Crect x='9' y='17' width='6' height='6' fill='%23faf9f5'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%23c6613f'/%3E%3C/svg%3E" />
     <title>Blink-Drop — Sender</title>
     <style>
       /* Shared design language with the receiver (receiver.html): same shell
-         (header + centered content), tokens, buttons, and dark mode. */
-      :root { color-scheme: light dark; }
+         (header + centered content), tokens, buttons, and dark mode.
+         Colors live as :root custom properties (one authoritative home).
+         Warm palette adapted from anthropic.com; brand wordmark is serif,
+         UI text stays sans for legibility. Dark mode swaps the token values
+         once, rather than overriding each rule. */
+      :root {
+        color-scheme: light dark;
+        --paper: #faf9f5;    /* warm ivory page background */
+        --card: #f0eee6;     /* cream surface */
+        --ink: #141413;      /* warm near-black text */
+        --muted: #6b6960;    /* warm gray — hints, meta, secondary (WCAG AA on paper + card) */
+        --accent: #b0512e;   /* terracotta "book-cloth" clay — darkened for WCAG AA (4.9:1 text, 5.2:1 under white) */
+        --accent-ink: #ffffff;
+        --border: #e3dacc;   /* greige */
+        --tan: #f5e3c7;      /* warm tan — dropzone drag/hover fill */
+        --field: #ffffff;    /* input background */
+        --field-ink: #141413;
+        --warn: #b45309;
+        --serif: Georgia, "Times New Roman", serif;
+        --sans: system-ui, -apple-system, Arial, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #141413;
+          --card: #201f1d;
+          --ink: #faf9f5;
+          --muted: #a8a59d;
+          --accent: #d97757;  /* lighter clay for contrast on near-black */
+          --accent-ink: #141413;
+          --border: #33322e;
+          --tan: #2a2723;
+          --field: #201f1d;
+          --field-ink: #faf9f5;
+          --warn: #f59e0b;
+        }
+      }
       * { box-sizing: border-box; }
       html { height: 100%; }
       body {
-        font-family: system-ui, sans-serif;
+        font-family: var(--sans);
+        color: var(--ink);
+        background: var(--paper);
         margin: 0;
         /* Percentage height (via html height:100%) fills the viewport without the
            iOS dynamic-toolbar over-scroll — and without the top-align that vh/dvh/
@@ -28,7 +65,8 @@
         flex-direction: column;
       }
       main { flex: 1; display: flex; }
-      .brand { font-size: 1.25rem; font-weight: 700; margin: 0; }
+      /* Serif wordmark — the one editorial display note; UI text stays sans. */
+      .brand { font-family: var(--serif); font-size: 1.5rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
       /* `margin: auto` centers the content in both axes AND is overflow-safe:
          it collapses to a top-aligned, scrollable layout when the playing stage
          grows taller than the viewport. */
@@ -43,7 +81,7 @@
         padding: 1.2rem;
         text-align: center;
       }
-      .tagline { color: #6b7280; margin: 0; }
+      .tagline { color: var(--muted); margin: 0; }
       /* Drop zone is the label for the (hidden) file input: click anywhere or drop. */
       .dropzone {
         width: 100%;
@@ -51,58 +89,55 @@
         align-items: center;
         justify-content: center;
         text-align: center;
-        border: 2px dashed #cbd5e1;
+        border: 2px dashed var(--border);
         border-radius: 12px;
         padding: 2.6rem 1rem;
-        color: #6b7280;
+        color: var(--muted);
         cursor: pointer;
         transition: border-color 0.15s, background 0.15s, color 0.15s;
       }
-      .dropzone:hover { border-color: #94a3b8; }
-      .dropzone.dragover { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+      .dropzone:hover { border-color: var(--accent); }
+      .dropzone.dragover { border-color: var(--accent); background: var(--tan); color: var(--accent); }
       .disclosures { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; }
       details { border-radius: 8px; text-align: center; }
-      summary { cursor: pointer; color: #2563eb; font-size: 0.9rem; list-style: none; user-select: none; text-align: center; }
+      summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; list-style: none; user-select: none; text-align: center; }
       summary::-webkit-details-marker { display: none; }
       .panel { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
       .panel input[type="password"] {
         padding: 0.55rem 0.7rem;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--border);
         border-radius: 10px;
-        background: #fff;
+        background: var(--field);
+        color: var(--field-ink);
         font-size: 1rem;
         width: min(80vw, 320px);
       }
-      .check { font-size: 0.85rem; color: #6b7280; }
-      .hint { color: #6b7280; font-size: 0.8rem; min-height: 1em; max-width: 34ch; text-align: center; }
-      .warn { color: #b45309; text-align: center; font-size: 0.85rem; min-height: 1em; }
+      .check { font-size: 0.85rem; color: var(--muted); }
+      .hint { color: var(--muted); font-size: 0.8rem; min-height: 1em; max-width: 34ch; text-align: center; }
+      .warn { color: var(--warn); text-align: center; font-size: 0.85rem; min-height: 1em; }
       #stage { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.55rem; }
       #stage[hidden] { display: none; }
-      canvas#qr { image-rendering: pixelated; border: 1px solid #e5e7eb; border-radius: 8px; max-width: 100%; }
-      .plan { font-variant-numeric: tabular-nums; color: #6b7280; font-size: 0.9rem; }
-      .status { color: #6b7280; font-size: 0.85rem; min-height: 1em; }
-      .cue { color: #6b7280; font-size: 0.85rem; }
+      /* Explicit white background: the scannable QR must stay dark-on-light for
+         the receiver's camera even when the page is in dark mode. */
+      canvas#qr { image-rendering: pixelated; border: 1px solid var(--border); border-radius: 8px; max-width: 100%; background: #fff; }
+      .plan { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.9rem; }
+      .status { color: var(--muted); font-size: 0.85rem; min-height: 1em; }
+      .cue { color: var(--muted); font-size: 0.85rem; }
       .playbar { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; justify-content: center; }
-      .playbar label { font-size: 0.85rem; color: #6b7280; display: flex; align-items: center; gap: 0.3rem; }
+      .playbar label { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 0.3rem; }
       button {
         padding: 0.6rem 1.1rem;
         border-radius: 10px;
-        border: 1px solid #d1d5db;
-        background: #fff;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--ink);
         font-size: 1rem;
         cursor: pointer;
+        font-family: var(--sans);
       }
-      button.primary { background: #111827; color: #fff; border-color: #111827; }
+      button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
       #receiverqr { width: 150px; height: 150px; border-radius: 8px; }
-      #receiverqrcap { font-size: 0.8rem; color: #6b7280; }
-      @media (prefers-color-scheme: dark) {
-        .dropzone { border-color: #374151; color: #9ca3af; }
-        .dropzone.dragover { border-color: #2563eb; background: #1e293b; color: #93c5fd; }
-        .panel input[type="password"] { background: #1f2937; color: #f9fafb; border-color: #374151; }
-        canvas#qr { border-color: #374151; }
-        button { background: #1f2937; color: #f9fafb; border-color: #374151; }
-        button.primary { background: #2563eb; border-color: #2563eb; }
-      }
+      #receiverqrcap { font-size: 0.8rem; color: var(--muted); }
     </style>
   </head>
   <body>
