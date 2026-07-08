@@ -1,8 +1,9 @@
-# Blink-Drop pre-commit hooks. Enable once with: pre-commit install
-# Standard file hygiene (repo-wide) + the web/ quality gates (Biome lint+format,
-# TypeScript typecheck, vitest). iOS (SwiftFormat/SwiftLint) hooks get added when
-# ios/ lands (MVP-1).
-minimum_pre_commit_version: "3.0.0"
+# Blink-Drop pre-commit hooks. Enable once with:
+#   pre-commit install --hook-type pre-commit --hook-type pre-push
+# Fast checks (hygiene, secret scan, biome, typecheck) run on every commit; the
+# slower vitest suite runs on push (see web-test `stages`). iOS (SwiftFormat/
+# SwiftLint) hooks get added when ios/ lands (MVP-1).
+minimum_pre_commit_version: "3.5.0"
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -18,6 +19,20 @@ repos:
         args: ["--fix=lf"]
       - id: check-added-large-files
         args: ["--maxkb=1024"]
+      - id: detect-private-key # block a committed private key (PEM/OpenSSH)
+
+  # Broad secret scanning (tokens, keys, high-entropy strings) beyond just PEM keys.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # Lint the GitHub Actions workflow YAML (catches invalid keys, shell bugs, and
+  # unpinned/mis-referenced actions).
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
 
   - repo: local
     hooks:
@@ -39,3 +54,4 @@ repos:
         language: system
         files: ^web/
         pass_filenames: false
+        stages: [pre-push] # slower — run on push, keep commits fast
