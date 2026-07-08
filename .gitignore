@@ -485,3 +485,8 @@ CLAUDE.local.md
 ### Blink-Drop ###
 # Single-file sender build output (dist/ is already ignored above)
 dist-sender/
+
+# Playwright
+web/test-results/
+web/playwright-report/
+web/playwright/.cache/
