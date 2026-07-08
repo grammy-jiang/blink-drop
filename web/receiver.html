@@ -8,18 +8,61 @@
       content="Scan an animated QR code with your phone camera to receive a file offline — reconstructed and SHA-256-verified on-device, nothing uploaded."
     />
     <title>Blink-Drop — Receiver</title>
-    <meta name="theme-color" content="#111827" />
+    <meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Blink-Drop" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='17' y='9' width='6' height='6' fill='%23f9fafb'/%3E%3Crect x='9' y='17' width='6' height='6' fill='%23f9fafb'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%232563eb'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141413'/%3E%3Crect x='9' y='9' width='6' height='6' fill='%23faf9f5'/%3E%3Crect x='17' y='9' width='6' height='6' fill='%23faf9f5'/%3E%3Crect x='9' y='17' width='6' height='6' fill='%23faf9f5'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%23c6613f'/%3E%3C/svg%3E" />
     <style>
-      :root { color-scheme: light dark; }
+      /* Shared design language with the sender (index.html): same shell, tokens,
+         buttons, and dark mode. Colors live as :root custom properties (one
+         authoritative home); warm palette adapted from anthropic.com. Dark mode
+         swaps the token values once, rather than overriding each rule. The camera
+         viewfinder and its target frame stay literal black/white — they frame a
+         live camera image and must not follow the page theme. */
+      :root {
+        color-scheme: light dark;
+        --paper: #faf9f5;
+        --card: #f0eee6;
+        --ink: #141413;
+        --muted: #73716b;
+        --accent: #c6613f;
+        --accent-ink: #ffffff;
+        --border: #e3dacc;
+        --field: #ffffff;
+        --field-ink: #141413;
+        --ok: #047857;   --ok-bg: #e7f3ec;
+        --lock: #1e40af; --lock-bg: #edeef7;
+        --warn: #b45309;
+        --err: #b91c1c;
+        --serif: Georgia, "Times New Roman", serif;
+        --sans: system-ui, -apple-system, Arial, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #141413;
+          --card: #201f1d;
+          --ink: #faf9f5;
+          --muted: #a8a59d;
+          --accent: #d97757;
+          --accent-ink: #141413;
+          --border: #33322e;
+          --field: #201f1d;
+          --field-ink: #faf9f5;
+          --ok: #34d399;   --ok-bg: #14261d;
+          --lock: #93c5fd; --lock-bg: #172033;
+          --warn: #f59e0b;
+          --err: #f87171;
+        }
+      }
       * { box-sizing: border-box; }
       html { height: 100%; }
       body {
-        font-family: system-ui, sans-serif;
+        font-family: var(--sans);
+        color: var(--ink);
+        background: var(--paper);
         margin: 0;
         /* Percentage height (via html height:100%) fills the viewport without the
            iOS dynamic-toolbar over-scroll — and without the top-align that vh/dvh/
@@ -29,7 +72,8 @@
         flex-direction: column;
       }
       #app { flex: 1; display: flex; }
-      .brand { font-size: 1.25rem; font-weight: 700; margin: 0; }
+      /* Serif wordmark — the one editorial display note; UI text stays sans. */
+      .brand { font-family: var(--serif); font-size: 1.5rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
       /* Identical centering to the sender's .content: margin:auto centers the
          content in both axes at ANY resolution and is overflow-safe (collapses
          to a scrollable top-aligned layout when content exceeds the viewport,
@@ -45,8 +89,9 @@
         padding: 1.2rem;
         text-align: center;
       }
-      .hint { color: #6b7280; max-width: 32ch; }
-      .loud { font-size: 1.2rem; font-weight: 700; color: #b91c1c; }
+      .hint { color: var(--muted); max-width: 32ch; }
+      /* Serif + red gives the verify-failure headline its weight. */
+      .loud { font-family: var(--serif); font-size: 1.2rem; font-weight: 700; color: var(--err); }
       .viewfinder {
         position: relative;
         width: min(90vw, 480px);
@@ -67,9 +112,10 @@
         pointer-events: none;
       }
       .progress { font-variant-numeric: tabular-nums; font-weight: 600; }
-      .stall { color: #b45309; min-height: 1.2em; }
+      .stall { color: var(--warn); min-height: 1.2em; }
       .card {
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border);
+        background: var(--card);
         border-radius: 14px;
         padding: 1.4rem;
         display: flex;
@@ -80,58 +126,53 @@
       }
       .badges { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
       .badge {
-        color: #047857;
+        color: var(--ok);
         font-weight: 700;
-        background: #ecfdf5;
+        background: var(--ok-bg);
         padding: 0.2rem 0.7rem;
         border-radius: 999px;
       }
-      .badge.lock { color: #1e40af; background: #eff6ff; }
+      .badge.lock { color: var(--lock); background: var(--lock-bg); }
       .enc-note { max-width: 34ch; }
-      .filelist { text-align: left; margin: 0.4rem 0; padding-left: 1.2rem; color: #374151; font-size: 0.9rem; max-width: 34ch; word-break: break-all; }
-      @media (prefers-color-scheme: dark) { .filelist { color: #d1d5db; } }
+      .filelist { text-align: left; margin: 0.4rem 0; padding-left: 1.2rem; color: var(--ink); font-size: 0.9rem; max-width: 34ch; word-break: break-all; }
       .pp {
         padding: 0.55rem 0.7rem;
         border-radius: 10px;
-        border: 1px solid #d1d5db;
-        background: #fff;
+        border: 1px solid var(--border);
+        background: var(--field);
+        color: var(--field-ink);
         font-size: 1rem;
         width: min(80vw, 320px);
       }
       .fname { font-weight: 700; word-break: break-all; }
-      .meta { color: #6b7280; font-size: 0.9rem; }
+      .meta { color: var(--muted); font-size: 0.9rem; }
       .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; margin-top: 0.4rem; }
-      .shareresult { color: #6b7280; font-size: 0.9rem; min-height: 1.2em; }
+      .shareresult { color: var(--muted); font-size: 0.9rem; min-height: 1.2em; }
       button {
         padding: 0.6rem 1.1rem;
         border-radius: 10px;
-        border: 1px solid #d1d5db;
-        background: #fff;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--ink);
         font-size: 1rem;
         cursor: pointer;
+        font-family: var(--sans);
       }
-      button.primary { background: #111827; color: #fff; border-color: #111827; }
-      button.ghost { border: none; background: transparent; color: #6b7280; }
+      button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+      button.ghost { border: none; background: transparent; color: var(--muted); }
       .install {
         display: flex;
         align-items: center;
         gap: 0.6rem;
-        background: #f3f4f6;
-        color: #374151;
+        background: var(--card);
+        color: var(--muted);
+        border: 1px solid var(--border);
         border-radius: 10px;
         padding: 0.5rem 0.7rem;
         font-size: 0.85rem;
         max-width: 34ch;
       }
       .install button { padding: 0.1rem 0.45rem; font-size: 0.9rem; line-height: 1; }
-      @media (prefers-color-scheme: dark) {
-        .card { border-color: #374151; }
-        button { background: #1f2937; color: #f9fafb; border-color: #374151; }
-        button.primary { background: #2563eb; border-color: #2563eb; }
-        .install { background: #1f2937; color: #d1d5db; }
-        .badge.lock { color: #bfdbfe; background: #1e293b; }
-        .pp { background: #1f2937; color: #f9fafb; border-color: #374151; }
-      }
     </style>
   </head>
   <body>

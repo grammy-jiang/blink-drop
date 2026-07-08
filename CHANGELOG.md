@@ -3,6 +3,29 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.11.0 — 2026-07-09
+
+Anthropic-inspired visual restyle of both pages — same layout, warmer skin.
+
+### Changed
+
+- Reskinned the sender and receiver with a warm palette adapted from
+  anthropic.com: ivory paper (`#faf9f5`), warm near-black ink (`#141413`),
+  terracotta accent (`#c6613f`; lighter clay `#d97757` in dark mode), greige
+  borders, cream surfaces. The old blue / cool-gray palette is gone.
+- Brand wordmark now uses a serif display face (Georgia — no proprietary or
+  external fonts, so the offline / no-egress CSP is untouched); UI and body text
+  stay system-sans for legibility.
+- Hoisted colors to `:root` CSS custom properties in each page (one authoritative
+  home). Dark mode swaps the token values once via
+  `@media (prefers-color-scheme: dark)` instead of overriding each rule.
+- `theme-color` is now light/dark-adaptive; the PWA manifest and inline favicon
+  were warmed to match.
+
+No behavior, protocol, wire, or feature change — purely visual. The scannable QR
+keeps a white background in dark mode, and the camera viewfinder stays black so
+it still frames the live image correctly.
+
 ## 0.10.4 — 2026-07-09
 
 Tighter receiver copy — same meaning, fewer words.
