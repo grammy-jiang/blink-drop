@@ -55,7 +55,13 @@ export interface Argon2Params {
 // and it is lazily imported here so the PBKDF2/plaintext paths never pull it.
 // Memory-hard → far costlier to brute-force offline than PBKDF2 (docs/09).
 export async function deriveKeyArgon2(passphrase: string, salt: Uint8Array, params: Argon2Params): Promise<CryptoKey> {
-  const { argon2id } = await import("hash-wasm");
+  // Deep-import ONLY argon2, not the whole `hash-wasm` barrel. vite's single-file
+  // build (viteSingleFile) does not tree-shake the dynamically-imported barrel, so
+  // it was inlining all ~15 hash-wasm algorithms (+~180 KB) into the offline sender
+  // (298 → 476 KB under vite 8). The per-algorithm UMD bundle carries just argon2 —
+  // the same argon2id implementation — so only its wasm is inlined.
+  const { argon2id } = ((await import("hash-wasm/dist/argon2.umd.min.js")) as { default: typeof import("hash-wasm") })
+    .default;
   const raw = await argon2id({
     password: passphrase,
     salt,
