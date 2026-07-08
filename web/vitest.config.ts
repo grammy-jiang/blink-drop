@@ -16,9 +16,15 @@ export default defineConfig({
       exclude: ["src/ui/debug.ts", "src/polyfill.ts", "src/**/*.d.ts"],
       reporter: ["text-summary", "json-summary"],
       thresholds: {
-        // Gate the security-critical, fully unit-testable core hard, so a
-        // regression there fails CI. The global threshold is raised to 95 in
-        // Tier 2 once the UI orchestrators are covered (docs/20).
+        // Global floor (headroom below the current 86.6% lines / 82.7% branches),
+        // so a coverage regression fails CI. The last stretch to >95% is Tier 3:
+        // resume.ts (IndexedDB) + camera.ts's scan loop are browser-only and are
+        // covered by the Playwright E2E suite, not node unit tests (docs/20).
+        lines: 85,
+        statements: 85,
+        functions: 88,
+        branches: 78,
+        // The security-critical core is fully unit-testable — gate it harder.
         "src/core/**/*.ts": { lines: 90, statements: 90, functions: 90, branches: 85 },
       },
     },
