@@ -92,7 +92,7 @@ jobs:
       - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
       # Blocks a PR that introduces a high-severity or disallowed-license
       # dependency (repo Dependency Graph enabled 2026-07-08).
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v4
         with:
           fail-on-severity: high
 
