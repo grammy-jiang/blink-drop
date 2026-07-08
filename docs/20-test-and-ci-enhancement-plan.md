@@ -28,8 +28,9 @@ These need a browser (DOM, canvas, camera, IndexedDB), so they were validated by
 - Add dev deps `canvas` (real 2d for render/scan round-trips) + `fake-indexeddb` (resume).
 - **`sender.ts` jsdom test** — mount `index.html`'s DOM, drive file → `processFiles` → real QR render (node-canvas), assert stage/plan; passphrase + kdf default (argon2id) + strength; Adjust sliders.
 - **`receiver.ts` jsdom test** — render every screen (Ready / Resume-offer / Collecting / Passphrase / Complete / Failed / Insecure / Denied); simulate the `getUserMedia`-override synthetic-frame flow (as in the manual E2E) to drive Ready→Collecting→Verify→Complete for plaintext, encrypted (+ wrong-pass), multi-file; the share/save/discard handlers; the install-prompt (beforeinstallprompt → Install button).
-- Expand `resume.test.ts` (fake-indexeddb) + `scan`/`render` round-trips (node-canvas).
-- Raise the global coverage threshold to **95** (lines/statements), functions/branches ≥ 90. Live camera loop (video playback) stays a Tier 3 concern and is excluded from the unit metric with a documented note.
+- `render`/`scan` round-trips via `@napi-rs/canvas` (prebuilt, no cairo); `camera.ts` getUserMedia error mapping.
+- **Outcome:** overall lines **48% → 86.6%**, 140 tests; core + loop + render + scan + share + bundle + filename + size all 100%. Global gate set to **85** lines / 78 branches (headroom below current).
+- **The last stretch to >95% is Tier 3.** `resume.ts` (IndexedDB — a non-extractable `CryptoKey` can't be structured-cloned in node) and `camera.ts`'s live scan loop (video playback) are genuinely browser-only. Playwright (Tier 3) exercises them in a real browser; with V8 coverage merged, the combined number clears 95%.
 
 ### Tier 3 — real-browser E2E (Playwright)
 - Add `@playwright/test`; a `web/e2e/` suite that runs the *actual* flows in headless Chromium against `vite preview`: sender file→animated QR; receiver scan→verify→share via the synthetic-camera `getUserMedia` override; encrypted + wrong-pass; multi-file Share/Save .zip; the Android install-prompt path. Optionally collect V8 coverage to merge the live camera loop into the number.
