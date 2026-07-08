@@ -3,6 +3,21 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.10.2 — 2026-07-08
+
+Platform-correct install hint (Android fix).
+
+### Fixed
+
+- **The receiver's install tip no longer shows iOS-only steps on Android.** It
+  previously always read "Share → Add to Home Screen" (the iOS Safari flow),
+  which is wrong on Android. Now: on Chromium (Android / desktop) it captures
+  `beforeinstallprompt` and offers a real one-tap **Install** button; on iOS it
+  keeps the Share → Add to Home Screen tip; anywhere it can neither prompt nor
+  give correct steps it shows nothing (instead of another platform's
+  instructions). Found via an Android-emulation pass. Receiver-only, no wire
+  change.
+
 ## 0.10.1 — 2026-07-08
 
 Argon2id is now the default KDF for encrypted transfers.
