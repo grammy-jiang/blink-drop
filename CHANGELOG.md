@@ -11,8 +11,10 @@ Anthropic-inspired visual restyle of both pages — same layout, warmer skin.
 
 - Reskinned the sender and receiver with a warm palette adapted from
   anthropic.com: ivory paper (`#faf9f5`), warm near-black ink (`#141413`),
-  terracotta accent (`#c6613f`; lighter clay `#d97757` in dark mode), greige
-  borders, cream surfaces. The old blue / cool-gray palette is gone.
+  terracotta accent (`#b0512e`; lighter clay `#d97757` in dark mode), greige
+  borders, cream surfaces. The old blue / cool-gray palette is gone. Accent and
+  muted-gray tones are tuned to clear WCAG AA (≥4.5:1) as text and under white
+  button labels, on both the paper and cream-card backgrounds.
 - Brand wordmark now uses a serif display face (Georgia — no proprietary or
   external fonts, so the offline / no-egress CSP is untouched); UI and body text
   stay system-sans for legibility.
