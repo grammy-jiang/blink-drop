@@ -26,12 +26,12 @@ jobs:
       security-events: write # upload results to the Security tab
     steps:
       - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
-      - uses: github/codeql-action/init@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+      - uses: github/codeql-action/init@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           languages: javascript-typescript
           # security-and-quality adds maintainability queries on top of security.
           queries: security-and-quality
       # JS/TS is interpreted — no build step needed before analysis.
-      - uses: github/codeql-action/analyze@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+      - uses: github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           category: "/language:javascript-typescript"
