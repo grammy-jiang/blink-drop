@@ -13,12 +13,14 @@ vi.mock("../src/qr/render.js", () => ({
 import { renderTextToCanvas } from "../src/qr/render.js";
 
 const DOM = `
-  <label id="dropzone" for="file">Drop files</label>
-  <input type="file" id="file" hidden />
-  <input type="password" id="pass" />
-  <div id="strength"></div>
-  <label><input type="checkbox" id="argon" checked /> Stronger</label>
-  <div id="passnote"></div>
+  <div id="setup">
+    <label id="dropzone" for="file">Drop files</label>
+    <input type="file" id="file" hidden />
+    <input type="password" id="pass" />
+    <div id="strength"></div>
+    <label><input type="checkbox" id="argon" checked /> Stronger</label>
+    <div id="passnote"></div>
+  </div>
   <div id="sizewarn"></div>
   <div id="caution"></div>
   <div id="stage" hidden>
@@ -81,6 +83,7 @@ describe("sender UI", () => {
     setFile("hello.txt", "hi there");
     // set synchronously, before the async build
     expect(id("stage").hasAttribute("hidden")).toBe(false);
+    expect(id("setup").hidden).toBe(true); // idle setup hidden during a transfer
     expect(id("caution").textContent).toBe("Visible to anyone who can see the screen.");
     expect(id("status").textContent).toBe("Preparing…");
     await vi.waitFor(() => expect(player().isRunning).toBe(true));
@@ -135,13 +138,16 @@ describe("sender UI", () => {
     expect(id("scaleVal").textContent).toBe("9");
   });
 
-  it("Stop halts playback", async () => {
+  it("Stop returns to Idle — restores setup, hides the transfer view", async () => {
     await mountSender();
     setFile("a.txt", "content");
     await vi.waitFor(() => expect(player().isRunning).toBe(true));
+    expect(id("setup").hidden).toBe(true); // hidden while playing
     id<HTMLButtonElement>("stop").click();
     expect(player().isRunning).toBe(false);
-    expect(id("status").textContent).toBe("Stopped.");
+    expect(id("setup").hidden).toBe(false); // setup restored
+    expect(id("stage").hasAttribute("hidden")).toBe(true); // transfer view hidden
+    expect(id("caution").textContent).toBe(""); // cleared
   });
 
   it("an empty file selection is a no-op", async () => {

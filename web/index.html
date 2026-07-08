@@ -109,28 +109,32 @@
     <main>
       <div class="content">
         <h1 class="brand">Blink-Drop</h1>
-        <p class="tagline">Offline. Nothing uploaded.</p>
 
-        <label class="dropzone" id="dropzone" for="file">Drop files, or click</label>
-        <input type="file" id="file" multiple hidden />
+        <!-- setup: shown only when idle; hidden once a transfer is playing -->
+        <div id="setup">
+          <p class="tagline">Offline. Nothing uploaded.</p>
 
-        <div class="disclosures">
-          <details id="encbox">
-            <summary>🔒 Add passphrase</summary>
-            <div class="panel">
-              <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="passphrase" />
-              <div id="strength" class="hint"></div>
-              <label class="check"><input type="checkbox" id="argon" checked /> Stronger key (Argon2id) — on by default</label>
-              <div id="passnote" class="hint"></div>
-            </div>
-          </details>
-          <details id="phonebox">
-            <summary>📱 Phone link</summary>
-            <div class="panel">
-              <canvas id="receiverqr" width="10" height="10"></canvas>
-              <div id="receiverqrcap"></div>
-            </div>
-          </details>
+          <label class="dropzone" id="dropzone" for="file">Drop files, or click</label>
+          <input type="file" id="file" multiple hidden />
+
+          <div class="disclosures">
+            <details id="encbox">
+              <summary>🔒 Add passphrase</summary>
+              <div class="panel">
+                <input type="password" id="pass" autocomplete="off" spellcheck="false" placeholder="passphrase" />
+                <div id="strength" class="hint"></div>
+                <label class="check"><input type="checkbox" id="argon" checked /> Stronger key (Argon2id) — on by default</label>
+                <div id="passnote" class="hint"></div>
+              </div>
+            </details>
+            <details id="phonebox">
+              <summary>📱 Phone link</summary>
+              <div class="panel">
+                <canvas id="receiverqr" width="10" height="10"></canvas>
+                <div id="receiverqrcap"></div>
+              </div>
+            </details>
+          </div>
         </div>
 
         <div id="sizewarn" class="warn"></div>

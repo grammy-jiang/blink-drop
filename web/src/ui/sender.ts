@@ -33,6 +33,7 @@ const sizeWarnEl = el<HTMLDivElement>("sizewarn");
 const cautionEl = el<HTMLDivElement>("caution");
 const stageEl = el<HTMLDivElement>("stage");
 const dropzone = el<HTMLElement>("dropzone");
+const setupEl = el<HTMLElement>("setup");
 
 const player = new FramePlayer(canvas, { fps: Number(rate.value), scale: Number(scale.value) });
 let seqLen = 0;
@@ -60,7 +61,13 @@ scale.addEventListener("input", () => {
 });
 stopBtn.addEventListener("click", () => {
   player.stop();
-  statusEl.textContent = "Stopped.";
+  // Return to Idle: restore the setup controls, hide the transfer view.
+  stageEl.hidden = true;
+  setupEl.hidden = false;
+  cautionEl.textContent = "";
+  sizeWarnEl.textContent = "";
+  statusEl.textContent = "";
+  fileInput.value = ""; // allow re-selecting the same file
 });
 
 // Honest, non-fabricated copy: state what encryption does and does NOT hide. The
@@ -104,8 +111,9 @@ async function processFiles(files: File[]): Promise<void> {
   // checked by default (v0.10.1). Unchecking it opts down to PBKDF2 (undefined →
   // core's PBKDF2 default) for a faster, GPU-weaker key. Only relevant with a passphrase.
   const kdf = passphrase && argonBox.checked ? "argon2id" : undefined;
-  // Reveal the playing stage; show the visible-capture caution only for an
-  // unencrypted send (honest exactly when it matters — docs/18 D3).
+  // Focus the transfer view: hide the idle setup, reveal the playing stage. Show
+  // the visible-capture caution only for an unencrypted send (docs/18 D3, docs/21).
+  setupEl.hidden = true;
   stageEl.hidden = false;
   cautionEl.textContent = passphrase ? "" : "Visible to anyone who can see the screen.";
   statusEl.textContent = passphrase ? (kdf ? "Encrypting (stronger)…" : "Encrypting…") : "Preparing…";
