@@ -3,6 +3,20 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.10.3 — 2026-07-08
+
+Simpler sender: the Playing state now shows only what that step needs.
+
+### Changed
+
+- **While a transfer is playing, the sender hides the idle setup.** It used to
+  keep the drop zone, "Add passphrase", "Phone link", and the tagline on screen
+  during a send, pushing the QR to the middle of the page. Now Playing shows only
+  the transfer view — title, the "visible to anyone" caution, the animated QR, the
+  file/ETA plan, the "keep playing until Verified" cue, Stop, and Adjust — like the
+  receiver's one-screen-per-state model. **Stop** returns to a clean Idle. No
+  wire/protocol/crypto change; the receiver is untouched. Plan: `docs/21`.
+
 ## 0.10.2 — 2026-07-08
 
 Platform-correct install hint (Android fix).

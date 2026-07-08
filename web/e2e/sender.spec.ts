@@ -19,8 +19,17 @@ test("dropping a file plays an animated QR with a plan", async ({ page }) => {
   const qrWidth = await page.locator("#qr").evaluate((c) => (c as HTMLCanvasElement).width);
   expect(qrWidth).toBeGreaterThan(0);
 
+  // The transfer view is focused: the idle setup (dropzone + toggles) is hidden.
+  await expect(page.locator("#setup")).toBeHidden();
+  await expect(page.locator("#dropzone")).toBeHidden();
+
   // The status advances into Playing (the FramePlayer is animating).
   await expect(page.locator("#status")).toContainText(/Playing|Encrypting|Preparing/);
+
+  // Stop returns to Idle — the setup comes back, the stage goes away.
+  await page.locator("#stop").click();
+  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#stage")).toBeHidden();
 });
 
 test("the receiver-link QR renders on load", async ({ page }) => {
