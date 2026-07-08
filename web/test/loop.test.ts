@@ -1,0 +1,117 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type FrameInfo, FramePlayer } from "../src/player/loop.js";
+
+// FramePlayer animates precomputed QR parts on a canvas. We mock the renderer
+// (its canvas output is irrelevant here) and stub requestAnimationFrame so ticks
+// can be driven at controlled timestamps — isolating the frame-advance / cycle /
+// fps-gating logic. rAF timestamps are always > 0 in a real browser (ms since
+// load), so the tests use positive times.
+vi.mock("../src/qr/render.js", () => ({ renderUrToCanvas: vi.fn() }));
+
+import { renderUrToCanvas } from "../src/qr/render.js";
+
+const render = vi.mocked(renderUrToCanvas);
+const canvas = {} as HTMLCanvasElement;
+
+let rafCb: FrameRequestCallback | null = null;
+
+function frame(t: number): void {
+  const cb = rafCb;
+  rafCb = null;
+  cb?.(t);
+}
+
+beforeEach(() => {
+  rafCb = null;
+  let id = 0;
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    rafCb = cb;
+    return ++id;
+  });
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  render.mockClear();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("FramePlayer", () => {
+  it("does not start with no parts loaded", () => {
+    const p = new FramePlayer(canvas, { fps: 10, scale: 6 });
+    p.load([]);
+    p.start();
+    expect(p.isRunning).toBe(false);
+    expect(rafCb).toBeNull();
+  });
+
+  it("draws the first frame immediately on start", () => {
+    const p = new FramePlayer(canvas, { fps: 10, scale: 6 });
+    p.load(["ur:a", "ur:b"]);
+    p.start();
+    expect(p.isRunning).toBe(true);
+    frame(1); // first tick (t>0)
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(render).toHaveBeenLastCalledWith("ur:a", canvas, { scale: 6 });
+  });
+
+  it("gates subsequent draws by fps (1000/fps ms)", () => {
+    const p = new FramePlayer(canvas, { fps: 10, scale: 6 }); // interval 100ms
+    p.load(["ur:a", "ur:b", "ur:c"]);
+    p.start();
+    frame(1); // draw a (index 0)
+    frame(50); // 49ms since last draw < 100 → no draw
+    expect(render).toHaveBeenCalledTimes(1);
+    frame(101); // 100ms elapsed → draw b (index 1)
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(render).toHaveBeenLastCalledWith("ur:b", canvas, { scale: 6 });
+  });
+
+  it("wraps to the start and counts cycles", () => {
+    const seen: FrameInfo[] = [];
+    const p = new FramePlayer(canvas, { fps: 1000, scale: 6 }); // interval 1ms
+    p.onFrame = (i) => seen.push({ ...i });
+    p.load(["ur:a", "ur:b"]);
+    p.start();
+    frame(1); // a  (index 0, cycles 0)
+    frame(3); // b  (index 1, cycles 0)
+    frame(5); // wrap → a (index 0, cycles 1)
+    expect(seen).toEqual([
+      { index: 0, total: 2, cycles: 0 },
+      { index: 1, total: 2, cycles: 0 },
+      { index: 0, total: 2, cycles: 1 },
+    ]);
+  });
+
+  it("stop() halts drawing and cancels the frame", () => {
+    const p = new FramePlayer(canvas, { fps: 1000, scale: 6 });
+    p.load(["ur:a", "ur:b"]);
+    p.start();
+    frame(1);
+    expect(render).toHaveBeenCalledTimes(1);
+    p.stop();
+    expect(p.isRunning).toBe(false);
+    expect(cancelAnimationFrame).toHaveBeenCalled();
+    frame(2); // a stale tick after stop must not draw
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("honors a live scale change", () => {
+    const p = new FramePlayer(canvas, { fps: 1000, scale: 6 });
+    p.load(["ur:a", "ur:b"]);
+    p.start();
+    frame(1);
+    p.scale = 9;
+    frame(3);
+    expect(render).toHaveBeenLastCalledWith("ur:b", canvas, { scale: 9 });
+  });
+
+  it("start() is idempotent while already running", () => {
+    const p = new FramePlayer(canvas, { fps: 10, scale: 6 });
+    p.load(["ur:a"]);
+    p.start();
+    const firstCb = rafCb;
+    p.start(); // no second loop scheduled
+    expect(rafCb).toBe(firstCb);
+  });
+});
