@@ -32,6 +32,6 @@ jobs:
           # security-and-quality adds maintainability queries on top of security.
           queries: security-and-quality
       # JS/TS is interpreted — no build step needed before analysis.
-      - uses: github/codeql-action/analyze@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+      - uses: github/codeql-action/analyze@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           category: "/language:javascript-typescript"
