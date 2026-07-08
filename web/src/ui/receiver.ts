@@ -36,6 +36,13 @@ const STALL_TIPS = [
 // finish in seconds, so they never touch disk.
 const RESUME_MIN_FRAMES = 40;
 
+// The Chromium-only install-prompt event (Android + desktop Chrome), not yet in
+// lib.dom. iOS Safari never fires it — there we show the Add-to-Home-Screen tip.
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
+
 function main(): void {
   const app = document.getElementById("app") as HTMLElement;
 
@@ -45,6 +52,20 @@ function main(): void {
   let lastProgressAt = 0;
   let receivedParts = new Set<string>();
   let lastSaveAt = 0;
+
+  // Chromium (Android/desktop) fires beforeinstallprompt when the PWA is
+  // installable; capture it to offer a real one-tap Install button. iOS Safari
+  // never fires it → the Share → Add to Home Screen tip is used there instead.
+  let installPrompt: BeforeInstallPromptEvent | null = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    installPrompt = e as BeforeInstallPromptEvent;
+    if (app.querySelector("#start")) renderReady(); // refresh Ready → show the button
+  });
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null;
+    (app.querySelector("#install") as HTMLElement | null)?.remove();
+  });
 
   const stopCamera = (): void => {
     camera?.stop();
@@ -67,6 +88,16 @@ function main(): void {
         try {
           sessionStorage.setItem("bd-hide-install", "1");
         } catch {}
+        (app.querySelector("#install") as HTMLElement | null)?.remove();
+      });
+    }
+    const installGo = app.querySelector("#install-go");
+    if (installGo) {
+      installGo.addEventListener("click", async () => {
+        if (!installPrompt) return;
+        await installPrompt.prompt();
+        await installPrompt.userChoice.catch(() => undefined);
+        installPrompt = null; // the prompt can only be used once
         (app.querySelector("#install") as HTMLElement | null)?.remove();
       });
     }
@@ -104,11 +135,30 @@ function main(): void {
       dismissed = sessionStorage.getItem("bd-hide-install") === "1";
     } catch {}
     if (standalone || dismissed) return "";
-    return `
-      <div class="install" id="install">
-        <span>Tip: <b>Share → Add to Home Screen</b> installs Blink-Drop so the camera opens reliably.</span>
-        <button type="button" id="install-x" class="ghost" aria-label="Dismiss">✕</button>
-      </div>`;
+    // Chromium (Android/desktop): a real one-tap Install button from the captured
+    // beforeinstallprompt — the reliable install path on Android.
+    if (installPrompt) {
+      return `
+        <div class="install" id="install">
+          <span>Install Blink-Drop so the camera opens reliably.</span>
+          <button type="button" id="install-go" class="primary">Install</button>
+          <button type="button" id="install-x" class="ghost" aria-label="Dismiss">✕</button>
+        </div>`;
+    }
+    // iOS Safari (never fires beforeinstallprompt): the Share → Add to Home Screen flow.
+    const isIOS =
+      /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      return `
+        <div class="install" id="install">
+          <span>Tip: <b>Share → Add to Home Screen</b> installs Blink-Drop so the camera opens reliably.</span>
+          <button type="button" id="install-x" class="ghost" aria-label="Dismiss">✕</button>
+        </div>`;
+    }
+    // Anywhere we can neither prompt nor give correct steps → show nothing, rather
+    // than another platform's (wrong) instructions.
+    return "";
   }
 
   function renderInsecure(): void {
