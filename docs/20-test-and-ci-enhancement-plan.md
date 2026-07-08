@@ -39,9 +39,10 @@ These need a browser (DOM, canvas, camera, IndexedDB), so they were validated by
 - New CI job **`e2e`** (pinned SHAs, `playwright install --with-deps chromium`, uploads traces on failure).
 - 5 E2E specs, all green locally. The live camera loop + optical pipeline are now covered by an automated real-browser run (not just manual). Merging Playwright V8 coverage into the vitest number is left as an optional future step; the coverage *gate* stays on the unit suite.
 
-### Tier 4 — extras
-- **Lighthouse CI** — a11y / best-practices / SEO / PWA budget gate on the built site (pins the manual v0.7.2 audit).
-- **Node matrix** — run the `web` job on Node 20 + 22.
+### Tier 4 — extras — SHIPPED
+- **Lighthouse CI** (`web/lighthouserc.json` + a `lighthouse` CI job, `treosh/lighthouse-ci-action` pinned) — audits the built receiver + sender served via `vite preview` (correct `/blink-drop/` base). **Accessibility ≥ 0.95 is a hard gate**; SEO / best-practices are warnings. Validated locally (`lhci autorun` green).
+- **Node matrix** — the `web` job now runs on **Node 20 + 22** (`fail-fast: false`).
+- **Dependabot hardening** — the dev-dependencies group is restricted to `minor`/`patch`, so breaking major bumps (like the vite 8 / TS 6 group in #47) get individual PRs and a deliberate migration instead of a red bulk PR.
 
 ## 3. Tasks
 - **T1 (Tier 1):** coverage dep + config + `test:coverage`; `share`/`loop`/`scan`/`render` tests; CI coverage step + core threshold gate; this doc.

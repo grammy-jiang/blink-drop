@@ -11,6 +11,10 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+        # Group only non-breaking updates. Major dev bumps (e.g. vite 6→8,
+        # typescript 5→6) get their own PRs so each migration is reviewed
+        # deliberately, not merged in a breaking bulk.
+        update-types: ["minor", "patch"]
   # Keep the CI/Pages workflow actions patched.
   - package-ecosystem: github-actions
     directory: /
