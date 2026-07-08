@@ -153,7 +153,15 @@ function readHead(r: Reader): { major: number; arg: number } {
   return { major, arg };
 }
 
-function decodeValue(r: Reader): CborValue {
+// Hostile CBOR can nest arrays/maps arbitrarily deep; each level costs ~1 byte
+// (e.g. 0x81 = array(1)), so an unbounded recursive decode is a stack-overflow
+// DoS on attacker-controlled input. The real Blink-Drop envelope nests at most
+// ~4 levels ([outer, [ [meta, payload], … ]]); 32 is a generous ceiling that
+// turns a would-be stack overflow into a deterministic, O(1) rejection.
+const MAX_CBOR_DEPTH = 32;
+
+function decodeValue(r: Reader, depth: number): CborValue {
+  if (depth > MAX_CBOR_DEPTH) throw new CborError(`CBOR nesting exceeds ${MAX_CBOR_DEPTH}`);
   const { major, arg } = readHead(r);
   switch (major) {
     case MT_UINT:
@@ -164,7 +172,7 @@ function decodeValue(r: Reader): CborValue {
       return new TextDecoder("utf-8", { fatal: true }).decode(r.bytes(arg));
     case MT_ARRAY: {
       const out: CborValue[] = [];
-      for (let i = 0; i < arg; i++) out.push(decodeValue(r));
+      for (let i = 0; i < arg; i++) out.push(decodeValue(r, depth + 1));
       return out;
     }
     case MT_MAP: {
@@ -172,7 +180,7 @@ function decodeValue(r: Reader): CborValue {
       for (let i = 0; i < arg; i++) {
         const { major: km, arg: key } = readHead(r);
         if (km !== MT_UINT) throw new CborError(`map key must be a uint, got major type ${km}`);
-        out.set(key, decodeValue(r));
+        out.set(key, decodeValue(r, depth + 1));
       }
       return out;
     }
@@ -183,7 +191,7 @@ function decodeValue(r: Reader): CborValue {
 
 export function decode(buf: Uint8Array): CborValue {
   const r = new Reader(buf);
-  const value = decodeValue(r);
+  const value = decodeValue(r, 0);
   if (r.pos !== buf.length) throw new CborError(`trailing bytes after CBOR value (${buf.length - r.pos} left)`);
   return value;
 }

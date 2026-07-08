@@ -3,6 +3,44 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.10.0 — 2026-07-08
+
+Security hardening — delivery layer, decoder, and supply chain (see
+[docs/19](docs/19-security-hardening-plan.md)). **No wire/protocol/envelope
+change** — every existing plaintext and encrypted transfer stays byte-compatible.
+
+### Changed
+
+- **The receiver now forbids all network egress too** (`connect-src 'none'`,
+  was `'self'`). The receiver window makes no network request of its own; its
+  service-worker precache runs in the worker context, which the page's
+  `connect-src` does not govern, so offline still works. "Nothing leaves the
+  device" is now browser-enforced on **both** pages, not just the sender.
+- **The hosted sender drops `script-src 'unsafe-inline'`** (it serves only
+  external scripts — the inline rationale applies only to the offline
+  single-file build, which keeps it). Closes an inline-script XSS avenue and
+  brings the sender to CSP parity with the receiver.
+
+### Added
+
+- **CBOR decoder depth bound** (`MAX_CBOR_DEPTH = 32`). A deeply-nested hostile
+  message could deep-recurse the decoder; nesting is now rejected with a typed
+  `CborError` instead of relying on catching a stack overflow. Regression test
+  in `web/test/cbor-depth.test.ts`.
+- **Supply-chain CI gate** — `.github/dependabot.yml` (weekly npm +
+  github-actions updates) and a CI `npm audit --omit=dev --audit-level=high`
+  step. Runtime deps run in users' browsers with access to plaintext + the
+  passphrase, so high/critical advisories fail the build.
+
+### Notes
+
+- Cloudflare-edge hardening (disable Rocket Loader; add `frame-ancestors`,
+  `Referrer-Policy`, `Permissions-Policy` response headers) is an operator
+  checklist in `docs/19` §5 — it cannot be set from the repo (GitHub Pages
+  serves the site; a `<meta>` CSP is the only in-repo lever).
+- Passphrase-strength UX and Trusted Types are queued for **v0.10.1**;
+  Argon2id-as-default is recorded as a separate decision.
+
 ## 0.9.6 — 2026-07-08
 
 Unified, resolution-proof centering for both pages.

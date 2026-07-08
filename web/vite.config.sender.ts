@@ -9,7 +9,9 @@ import { cspPlugin } from "./vite-csp";
 export default defineConfig({
   base: "./",
   define: { global: "globalThis" },
-  plugins: [viteSingleFile(), cspPlugin()],
+  // inlineScripts: this build inlines all JS (viteSingleFile), so its sender CSP
+  // keeps script-src 'unsafe-inline' — unlike the hosted Pages sender.
+  plugins: [viteSingleFile(), cspPlugin({ inlineScripts: true })],
   build: {
     outDir: "dist-sender",
     target: "es2022",

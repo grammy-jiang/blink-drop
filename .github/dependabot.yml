@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Web app dependencies. The runtime deps (bc-ur, hash-wasm, jsqr, fflate,
+  # qrcode-generator) run in users' browsers with access to plaintext + the
+  # passphrase, so keep them current; dev tooling is grouped to cut PR noise.
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+  # Keep the CI/Pages workflow actions patched.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

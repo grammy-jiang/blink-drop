@@ -19,8 +19,10 @@ keep it playing until the phone shows **Verified**.
 ## What it does
 
 - **Offline by construction** — the file is processed in the browser and never
-  uploaded (CSP forbids network egress). A single self-contained offline HTML
-  sender is also built for air-gapped machines.
+  uploaded. A no-egress Content-Security-Policy (`connect-src 'none'`) is
+  browser-enforced on **both** the sender and the receiver, so "nothing leaves
+  the device" is a policy the browser refuses to break — not just a promise. A
+  single self-contained offline HTML sender is also built for air-gapped machines.
 - **Optional passphrase encryption** — set a passphrase and the transfer is
   encrypted (**AES-256-GCM**; **PBKDF2** by default, opt-in **Argon2id**). The
   file *and its metadata* are sealed; the receiver prompts for the passphrase.
@@ -38,7 +40,7 @@ keep it playing until the phone shows **Verified**.
 
 ## Status
 
-Shipping — latest **v0.9.6** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
+Shipping — latest **v0.10.0** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
 proven on real iPhone optics and the PWA receiver is device-validated. The
 **native iOS app is deferred** (its toolchain is macOS-only and the developer has
 no Mac); the PWA is the receiver. `docs/ios/*` remain the future-native reference.

@@ -30,6 +30,25 @@ jobs:
       - name: Unit + vector tests
         run: npm test
 
+  audit:
+    name: web · supply-chain audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Gate on RUNTIME (shipped) dependencies only — they run in users'
+      # browsers with access to plaintext + passphrase. Fail on high/critical;
+      # dev-tooling advisories are triaged via Dependabot PRs, not a red build.
+      - name: npm audit (production deps, high+)
+        run: npm audit --omit=dev --audit-level=high
+
   pre-commit:
     name: pre-commit (all hooks)
     runs-on: ubuntu-latest
