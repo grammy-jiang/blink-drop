@@ -92,6 +92,35 @@ jobs:
         with:
           fail-on-severity: high
 
+  e2e:
+    name: e2e (playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+      # Real-browser E2E: builds the site, serves it (vite preview), and runs the
+      # sender + receiver flows in chromium (fake media device). Covers the live
+      # camera loop + the full render→scan→verify pipeline that unit tests can't.
+      - name: Playwright E2E
+        run: npm run e2e
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: web/test-results/
+          retention-days: 7
+
   pre-commit:
     name: pre-commit (all hooks)
     runs-on: ubuntu-latest

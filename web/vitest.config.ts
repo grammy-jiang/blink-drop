@@ -7,6 +7,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts"],
+    // Headroom for slow CI runners: some tests run real KDFs (PBKDF2 600k /
+    // Argon2id) twice (encode + decode), which can exceed the 5s default.
+    testTimeout: 20_000,
     coverage: {
       provider: "v8",
       // vitest 4 counts all `include`d files (untested too) by default — no `all` flag.

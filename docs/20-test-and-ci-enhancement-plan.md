@@ -32,9 +32,12 @@ These need a browser (DOM, canvas, camera, IndexedDB), so they were validated by
 - **Outcome:** overall lines **48% → 86.6%**, 140 tests; core + loop + render + scan + share + bundle + filename + size all 100%. Global gate set to **85** lines / 78 branches (headroom below current).
 - **The last stretch to >95% is Tier 3.** `resume.ts` (IndexedDB — a non-extractable `CryptoKey` can't be structured-cloned in node) and `camera.ts`'s live scan loop (video playback) are genuinely browser-only. Playwright (Tier 3) exercises them in a real browser; with V8 coverage merged, the combined number clears 95%.
 
-### Tier 3 — real-browser E2E (Playwright)
-- Add `@playwright/test`; a `web/e2e/` suite that runs the *actual* flows in headless Chromium against `vite preview`: sender file→animated QR; receiver scan→verify→share via the synthetic-camera `getUserMedia` override; encrypted + wrong-pass; multi-file Share/Save .zip; the Android install-prompt path. Optionally collect V8 coverage to merge the live camera loop into the number.
-- New CI job `e2e` (installs the Chromium browser, runs Playwright).
+### Tier 3 — real-browser E2E (Playwright) — SHIPPED
+- `@playwright/test` + `playwright.config.ts` (chromium with `--use-fake-device-for-media-stream`, `webServer: vite preview`), `web/e2e/`, and an `e2e` npm script (`build` + `playwright test`).
+- **`e2e/sender.spec.ts`** — a dropped file plays a real animated QR on a real canvas (sender.ts + render.ts end-to-end); the receiver-link QR renders.
+- **`e2e/receiver.spec.ts`** — boots to Ready; the `?streamtest` harness proves **render → scan → reconstruct → SHA-256 verify** on real bytes in real chromium (`ok:true, verified:true`); **Start scanning runs the real camera loop** (`getUserMedia` → `<video>` → `scanCanvas`) — the `camera.ts` path unit tests can't reach.
+- New CI job **`e2e`** (pinned SHAs, `playwright install --with-deps chromium`, uploads traces on failure).
+- 5 E2E specs, all green locally. The live camera loop + optical pipeline are now covered by an automated real-browser run (not just manual). Merging Playwright V8 coverage into the vitest number is left as an optional future step; the coverage *gate* stays on the unit suite.
 
 ### Tier 4 — extras
 - **Lighthouse CI** — a11y / best-practices / SEO / PWA budget gate on the built site (pins the manual v0.7.2 audit).
