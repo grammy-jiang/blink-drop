@@ -24,7 +24,8 @@ keep it playing until the phone shows **Verified**.
   the device" is a policy the browser refuses to break — not just a promise. A
   single self-contained offline HTML sender is also built for air-gapped machines.
 - **Optional passphrase encryption** — set a passphrase and the transfer is
-  encrypted (**AES-256-GCM**; **PBKDF2** by default, opt-in **Argon2id**). The
+  encrypted (**AES-256-GCM**; memory-hard **Argon2id** by default, or **PBKDF2**
+  if you prefer speed). The
   file *and its metadata* are sealed; the receiver prompts for the passphrase.
   Plaintext transfers are the default and are unchanged.
 - **Honest receiver UX** — real progress denominator, stall guidance, a loud
@@ -40,7 +41,7 @@ keep it playing until the phone shows **Verified**.
 
 ## Status
 
-Shipping — latest **v0.10.0** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
+Shipping — latest **v0.10.1** (see [CHANGELOG.md](CHANGELOG.md)). The protocol is
 proven on real iPhone optics and the PWA receiver is device-validated. The
 **native iOS app is deferred** (its toolchain is macOS-only and the developer has
 no Mac); the PWA is the receiver. `docs/ios/*` remain the future-native reference.

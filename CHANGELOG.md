@@ -3,6 +3,27 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.10.1 — 2026-07-08
+
+Argon2id is now the default KDF for encrypted transfers.
+
+### Changed
+
+- **Encrypted sends use Argon2id (memory-hard) by default** — the sender's
+  "Stronger key (Argon2id)" box is now checked by default. Uncheck it to opt down
+  to PBKDF2 for a faster (but GPU/ASIC-weaker) key. This raises the cost of
+  brute-forcing a *filmed* ciphertext offline ("harvest now, crack later"). The
+  wire format is unchanged and byte-compatible: the receiver already reads both
+  KDFs, and existing PBKDF2 transfers keep working. Plaintext sends are unaffected.
+
+### Notes
+
+- Trade-off: Argon2id lazily loads a small WebAssembly module (hash-wasm) and is
+  slower than PBKDF2 — negligible on a laptop, ~sub-second on a phone. The
+  `wasm-unsafe-eval` CSP directive it needs was already present.
+- Deferred (docs/19): Cloudflare-edge response headers (`frame-ancestors`,
+  `Referrer-Policy`, `Permissions-Policy`) remain an operator checklist (§5).
+
 ## 0.10.0 — 2026-07-08
 
 Security hardening — delivery layer, decoder, and supply chain (see
