@@ -100,6 +100,9 @@ passInput.addEventListener("input", () => {
 async function processFiles(files: File[]): Promise<void> {
   if (files.length === 0) return;
   const passphrase = passInput.value || undefined;
+  // Argon2id (memory-hard) is the default for encrypted sends — the #argon box is
+  // checked by default (v0.10.1). Unchecking it opts down to PBKDF2 (undefined →
+  // core's PBKDF2 default) for a faster, GPU-weaker key. Only relevant with a passphrase.
   const kdf = passphrase && argonBox.checked ? "argon2id" : undefined;
   // Reveal the playing stage; show the visible-capture caution only for an
   // unencrypted send (honest exactly when it matters — docs/18 D3).

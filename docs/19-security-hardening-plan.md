@@ -131,9 +131,12 @@ as the correction:
   conflict. Not worth shipping while the CSP stays strict.
 - **B (Cloudflare response headers) — still open** (operator, §5): `frame-ancestors`/
   `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
-- **D2 (Argon2id as the encryption default) — decided to implement** (separate PR /
-  release). Trade-off: a wasm load on every encrypted send; wire-compatible (the
-  receiver already reads both KDFs).
+- **D2 (Argon2id as the encryption default) — shipped in v0.10.1.** The sender's
+  "Stronger key (Argon2id)" box now defaults to checked; unchecking opts down to
+  PBKDF2. Minimal approach — the core API default is unchanged (PBKDF2); the sender
+  passes `kdf: "argon2id"` explicitly. Wire-compatible (the receiver already reads
+  both KDFs); test vectors pin the KDF, so none changed. Trade-off: a lazy wasm
+  load + slower KDF on every encrypted send (accepted).
 
 ## 9. CI / pre-commit hardening (v0.10.0 follow-up)
 
