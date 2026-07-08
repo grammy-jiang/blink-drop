@@ -5,19 +5,26 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: read-only token for every job (raised per-job only where needed).
 permissions:
   contents: read
 
+# Cancel superseded runs on the same ref (a new push to a PR stops the old run).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   web:
-    name: web · lint · typecheck · test
+    name: web · lint · typecheck · test · build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "22"
           cache: npm
@@ -29,16 +36,34 @@ jobs:
         run: npm run typecheck
       - name: Unit + vector tests
         run: npm test
+      - name: Build (Pages site + offline sender)
+        run: npm run build && npm run build:sender
+      # Assert the no-egress CSP invariant survives the build (v0.10.0, docs/19).
+      # A regression that loosens the policy fails CI instead of shipping silently.
+      - name: Verify CSP invariants in built HTML
+        run: |
+          set -euo pipefail
+          echo "both hosted pages must forbid network egress"
+          grep -q "connect-src 'none'" dist/receiver.html
+          grep -q "connect-src 'none'" dist/index.html
+          echo "hosted sender must NOT carry script-src 'unsafe-inline'"
+          if grep -oE "script-src[^;]*" dist/index.html | grep -q "unsafe-inline"; then
+            echo "::error::hosted sender script-src regained 'unsafe-inline'"; exit 1
+          fi
+          echo "offline single-file sender inlines its JS, so it DOES keep 'unsafe-inline'"
+          grep -oE "script-src[^;]*" dist-sender/index.html | grep -q "unsafe-inline"
+          echo "CSP invariants OK"
 
   audit:
     name: web · supply-chain audit
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "22"
           cache: npm
@@ -49,12 +74,25 @@ jobs:
       - name: npm audit (production deps, high+)
         run: npm audit --omit=dev --audit-level=high
 
+  dependency-review:
+    name: dependency review (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
+      # Blocks a PR that introduces a vulnerable or disallowed-license dependency.
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+        with:
+          fail-on-severity: high
+
   pre-commit:
     name: pre-commit (all hooks)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "22"
           cache: npm
@@ -62,7 +100,7 @@ jobs:
       - name: Install web deps (needed by local hooks)
         working-directory: web
         run: npm ci
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
-      - uses: pre-commit/action@v3.0.1
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1

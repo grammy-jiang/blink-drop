@@ -105,3 +105,64 @@ After applying, re-verify live with `curl -sI` + a fresh (SW-cleared) load.
 - **T6** — D1: passphrase-strength nudge in `web/src/ui/sender.ts` (+ styles); E2E both viewports.
 - **T7** — C2: receiver Trusted Types (CSP directive + `bd` policy + wrap `innerHTML` sites); E2E, assert zero TT/CSP violations.
 - **T8** — bump → `0.10.1`, CHANGELOG, README; ship v0.10.1.
+
+## 8. Update log / reassessment (post-v0.10.0)
+
+Recording what actually happened, so §2/§7 above read as the original plan and this
+as the correction:
+
+- **v0.10.0 shipped** (A1 receiver `connect-src 'none'`, A2 sender drops
+  `script-src 'unsafe-inline'`, C1 CBOR depth bound, D3 supply-chain gate).
+  Verified live: both pages serve `connect-src 'none'`; sender `script-src` has no
+  `'unsafe-inline'`; 90 tests green.
+- **D1 was already shipped in v0.4** (commit `472cb13`), not pending. `sender.ts`
+  `updateStrength()` + `#strength` show a library-free entropy hint (weak/ok/strong)
+  with an offline-attack tooltip; the send-time "Visible to anyone who can see the
+  screen" caution already exists. Verified live. **No work needed.**
+- **A3 (Rocket Loader) is disabled** on the live zone — verified: clean,
+  un-rewritten script types, no `rocket-loader` tag, no `data-cf-settings`. The
+  edge no longer injects/rewrites scripts.
+- **C2 (Trusted Types) reassessed → deferred as redundant.** TT guards DOM
+  script-sinks (`innerHTML`, `script.src`, `eval`, inline handlers), but the v0.10.0
+  CSP (`script-src 'self'`, no `'unsafe-inline'`, no `'unsafe-eval'`) already
+  neutralizes all of them, and every attacker-controlled value already flows through
+  `textContent`, never `innerHTML`. Marginal security ≈ 0 against real complexity
+  (wrapping ~10 sinks or a weak passthrough policy) + a latent Rocket-Loader
+  conflict. Not worth shipping while the CSP stays strict.
+- **B (Cloudflare response headers) — still open** (operator, §5): `frame-ancestors`/
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
+- **D2 (Argon2id as the encryption default) — decided to implement** (separate PR /
+  release). Trade-off: a wasm load on every encrypted send; wire-compatible (the
+  receiver already reads both KDFs).
+
+## 9. CI / pre-commit hardening (v0.10.0 follow-up)
+
+Supply-chain + gate hardening for the toolchain itself (extends D3):
+
+**GitHub Actions**
+- **All actions pinned to a full commit SHA** (with a `# vX` comment) across
+  `ci.yml`, `pages.yml`, `codeql.yml` — a hijacked mutable tag can no longer inject
+  CI code. Dependabot (`github-actions` ecosystem) keeps the SHAs current.
+- **Build + CSP-invariant gate** in the `web` job: CI now runs `npm run build` and
+  `build:sender` (a broken build previously passed CI, caught only at deploy) and
+  asserts the no-egress CSP survives the build — `connect-src 'none'` on both hosted
+  pages, no `'unsafe-inline'` in the hosted sender, and the offline sender still
+  carries it. A CSP regression fails CI.
+- **CodeQL** SAST workflow (`javascript-typescript`, `security-and-quality`), on
+  push/PR/weekly.
+- **`dependency-review-action`** on PRs — blocks a PR that adds a high-severity or
+  disallowed-license dependency.
+- **Least privilege + hygiene** — read-only default `permissions`, per-job
+  `security-events: write` only for CodeQL; `concurrency: cancel-in-progress` and
+  `timeout-minutes` on every job.
+
+**pre-commit**
+- **`gitleaks`** (broad secret scanning) + **`detect-private-key`** — prevent
+  committing credentials.
+- **`actionlint`** — lint the workflow YAML.
+- **`web-test` moved to the `pre-push` stage** — commits stay fast; the vitest suite
+  gates on push. Enable with
+  `pre-commit install --hook-type pre-commit --hook-type pre-push`.
+
+Validated locally: `actionlint`, `gitleaks`, `detect-private-key`, `check-yaml` all
+pass; the CSP-invariant script passes against a fresh build.

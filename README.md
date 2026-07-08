@@ -75,7 +75,8 @@ CI and locally via pre-commit:
 
 ```bash
 pip install pre-commit   # or pipx install pre-commit
-pre-commit install       # enable the git hooks
+# fast checks on commit; the vitest suite + secret scan run on push
+pre-commit install --hook-type pre-commit --hook-type pre-push
 ```
 
 See `docs/` for the full design (blueprint, protocol, architecture + update
