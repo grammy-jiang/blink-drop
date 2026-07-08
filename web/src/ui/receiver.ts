@@ -77,7 +77,7 @@ function main(): void {
     app.innerHTML = `
       <div class="screen">
         <h1 class="brand">Blink-Drop</h1>
-        <div class="hint">Point your phone at the animation on the other screen.</div>
+        <div class="hint">Point your phone at the animation.</div>
         <button type="button" id="start" class="primary">Start scanning</button>
         ${installHintHtml()}
       </div>`;
@@ -109,7 +109,7 @@ function main(): void {
     stopCamera();
     app.innerHTML = `
       <div class="screen">
-        <div class="hint">You have an interrupted transfer — <b>${partial.percent}%</b> collected. Point at the same animation to continue, or start over.</div>
+        <div class="hint">Interrupted at <b>${partial.percent}%</b>. Point at the same animation to continue.</div>
         <div class="actions">
           <button type="button" id="resume" class="primary">Resume (${partial.percent}%)</button>
           <button type="button" id="fresh" class="ghost">Start fresh</button>
@@ -152,7 +152,7 @@ function main(): void {
     if (isIOS) {
       return `
         <div class="install" id="install">
-          <span>Tip: <b>Share → Add to Home Screen</b> installs Blink-Drop so the camera opens reliably.</span>
+          <span>Tip: <b>Share → Add to Home Screen</b> for a reliable camera.</span>
           <button type="button" id="install-x" class="ghost" aria-label="Dismiss">✕</button>
         </div>`;
     }
@@ -166,7 +166,7 @@ function main(): void {
     app.innerHTML = `
       <div class="screen">
         <div class="loud">Open this page over <b>https</b> to use the camera.</div>
-        <div class="hint">Safari blocks the camera on insecure connections. Use the hosted https link.</div>
+        <div class="hint">The camera needs a secure (https) connection.</div>
       </div>`;
   }
 
@@ -347,7 +347,7 @@ function main(): void {
           ${single ? "" : `<ul class="filelist" id="filelist"></ul>`}
           ${
             encrypted
-              ? `<div class="meta enc-note">Content and file name${single ? "" : "s"} were hidden from anyone without the passphrase. The size, and that a transfer happened, were not.</div>`
+              ? `<div class="meta enc-note">Name${single ? "" : "s"} and content were hidden from anyone without the passphrase — but not the size, or that a transfer happened.</div>`
               : ""
           }
           <div class="actions">

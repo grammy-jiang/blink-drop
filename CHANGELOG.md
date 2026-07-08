@@ -3,6 +3,17 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.10.4 — 2026-07-09
+
+Tighter receiver copy — same meaning, fewer words.
+
+### Changed
+
+- Trimmed receiver wording at several states (no behavior change): Ready ("Point
+  your phone at the animation."), the resume offer, the iOS install tip, the
+  insecure-context hint, and the encrypted-transfer privacy note (kept its honest
+  "size + that a transfer happened are not hidden" caveat). Receiver-only.
+
 ## 0.10.3 — 2026-07-08
 
 Simpler sender: the Playing state now shows only what that step needs.
