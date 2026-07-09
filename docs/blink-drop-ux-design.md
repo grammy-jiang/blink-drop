@@ -388,6 +388,7 @@ Design implication: the **sender's self-cue** ("keep playing until your phone sh
 - **Dynamic Type / scaling:** result card and guidance text scale.
 - **Reduced motion:** the receiver's non-essential UI animations respect Reduce Motion. **Caveat:** the *sender's* QR animation is functionally essential (it is the data channel) and cannot be disabled — note this so it is not mistaken for a motion-accessibility violation.
 - **Contrast/tap targets:** guidance and actions meet standard contrast and target-size expectations (verified at implementation/visual stage).
+- **Visual restyle (v0.11) satisfies these at the visual stage.** The shipped warm "Anthropic-inspired" palette clears **WCAG-AA** contrast (terracotta/greige tokens on ivory/cream), keeps status as **icon + text** (not colour alone), and adds **dark mode** via a `prefers-color-scheme` token swap. See [`../CHANGELOG.md`](../CHANGELOG.md) v0.11.
 
 ---
 

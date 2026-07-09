@@ -31,6 +31,8 @@
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-3 | Feature (KDF option) + CSP change | §17 (CSP/SG), §22; ADR-0010 amended, ADR-0011 new | Argon2id **opt-in** KDF (v0.4); `'wasm-unsafe-eval'` added to CSP. See the Update-3 addendum + `docs/09-implementation-plan-argon2.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-4 | Feature (resume) + data-at-rest | §10, §14, §17; ADR-0012 new | Receiver resume across restart; partial stored **encrypted at rest** (v0.6). See the Update-4 addendum + `docs/11-implementation-plan-resume.md`. |
 | 2026-07-07 | `blink-drop-architecture-design.md` v0.1 | update-5 | Feature (multi-file) + wire change | §4.2 (protocol), §12, §14, §17; ADR-0013 new | Multi-file transfer (v0.7): per-file verify + individual Web Share (+ `.zip` fallback v0.7.1); DEC-2 re-run. See the Update-5 addendum + `docs/13-implementation-plan-multifile.md`. |
+| 2026-07-08 | `blink-drop-architecture-design.md` v0.1 | update-6 | Security hardening (posture) | §9, §17, §19, §20; ADR-0009/0011 amended | v0.10: receiver egress → **`connect-src 'none'` on BOTH pages** (supersedes SG-4′ `'self'`/`app_fetch_only`); **Argon2id → DEFAULT KDF (v0.10.1)**; CBOR-depth/KDF/decompression/UR-seq bounds; Cloudflare response headers; hardened CI + CodeQL/Scorecard/weekly mutation; deploy at `grammy.jiang.is/blink-drop`. See the Update-6 addendum. |
+| 2026-07-09 | `blink-drop-architecture-design.md` v0.1 | update-7 | Visual restyle (no behaviour change) | §23 | v0.11 warm "Anthropic-inspired" restyle (terracotta `#b0512e` / clay `#d97757`, Georgia serif, WCAG-AA, `prefers-color-scheme` dark mode). See the Update-7 addendum. |
 
 ---
 
@@ -547,3 +549,100 @@ but the receiver hands off one archive to unpack).
 
 **Architecture Update Required? — Yes, applied by this addendum (update-5).** Read
 the base design as patched by §5, §U2.3, §U3.2, §U4.2, and §U5.2.
+
+---
+
+## Update-6 (2026-07-08): v0.10 security hardening — no-egress on both pages, default KDF flip
+
+> Posture-hardening pass. **No wire/protocol change** to the single-file, encrypted,
+> or multi-file formats. Full plan:
+> [`19-security-hardening-plan.md`](19-security-hardening-plan.md); see also
+> [`../CHANGELOG.md`](../CHANGELOG.md) (0.10.0–0.10.1).
+
+### U6.1 Accepted decisions and source
+
+| Field | Value |
+|-------|-------|
+| Decision | Harden the shipped posture: close receiver egress, bound every parser, default to the memory-hard KDF, and lock down the CI/CD supply chain |
+| Source | Ongoing security work, 2026-07-08 (`docs/19-security-hardening-plan.md`) |
+| Driver | Cut the receiver's residual attack surface (the update-1 `'self'` egress + soft parser bounds) and raise the offline-crack floor for a captured encrypted transfer |
+| Reversibility | Medium — each item is independently revertible; the default-KDF flip is a versioned envelope field, not a format change |
+
+### U6.2 Changes (patch the base design + earlier updates)
+
+- **Egress — receiver now `connect-src 'none'` on BOTH pages (supersedes SG-4′).** Update-1
+  set the receiver to `app_fetch_only` / `connect-src 'self'`; v0.10 tightens it to
+  **`connect-src 'none'`**, identical to the sender — the running app makes **no** network
+  calls of any kind. A **CI CSP-invariant gate** greps the built `dist/index.html` and
+  `dist/receiver.html` and fails the build if either loses `connect-src 'none'` (or if the
+  hosted sender regains `'unsafe-inline'`). The one-time HTTPS fetch of the app itself at
+  first load is unchanged (the §9 transport-trust note still holds).
+- **KDF default flip (supersedes ADR-0011 "PBKDF2 remains the default").** As of **v0.10.1**
+  the sender's Argon2id checkbox is **checked by default** → **Argon2id is the default KDF**;
+  unchecking opts down to PBKDF2. The versioned kdf-id + AAD binding from update-2/3 are
+  unchanged; only the default selection moved.
+- **Parser / DoS bounds (extends SG-2/SG-5).** CBOR nesting-depth bound (32); KDF-parameter
+  (KDF-bomb) bounds on `{m,t,p}`; a decompression-bomb cap; and a UR seq-count DoS guard.
+  All fail closed.
+- **Response headers (edge defense-in-depth).** Cloudflare adds `frame-ancestors` /
+  `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` scoped to `/blink-drop/`.
+- **Deploy URL.** The site is served at **`grammy.jiang.is/blink-drop`** (custom domain via
+  Cloudflare; GitHub Pages remains the origin) — **supersedes** the
+  `grammy-jiang.github.io/blink-drop` in P-11, the §10 table, and base §20.
+- **Supply-chain / CI (patches §19–§20).** All GitHub Actions are SHA-pinned and run under
+  step-security/harden-runner with least-privilege tokens and `persist-credentials: false`;
+  CodeQL SAST, OpenSSF Scorecard, weekly Stryker mutation, `npm audit` (prod deps),
+  dependency-review, and branch protection on `main` are in place. **Zero open security
+  alerts** (Scorecard + Dependabot).
+- **Testing (patches §19).** The web suite is now ~176 Vitest cases (coverage-gated) +
+  cross-browser Playwright E2E (chromium / firefox / webkit: optical loopback, captureStream
+  streamtest, a deterministic visual-contract spec, pixel screenshots) + weekly Stryker
+  mutation on `src/core` (`crypto.ts` excluded) + a Lighthouse a11y gate.
+
+### U6.3 ADR changes
+
+**ADR-0009 (receiver PWA): AMENDED** — the receiver's egress decision tightens from
+`app_fetch_only` / `connect-src 'self'` to **`connect-src 'none'`** at runtime (the one-time
+first-load HTTPS fetch is unchanged); SG-4′ is superseded by a CI-enforced no-egress invariant
+on both pages.
+
+**ADR-0011 (Argon2id KDF): AMENDED** — Argon2id is **promoted to the default** (v0.10.1);
+"PBKDF2 remains the default" no longer holds. PBKDF2 stays available as the opt-out via the
+versioned kdf-id.
+
+### U6.4 Verdict
+
+**Architecture Update Required? — Yes, applied by this addendum (update-6).** No DEC-2 wire
+re-run (formats unchanged). Read the base design as patched by §5, §U2.3, §U3.2, §U4.2,
+§U5.2, and §U6.2.
+
+---
+
+## Update-7 (2026-07-09): v0.11 visual restyle — warm palette + serif wordmark
+
+> Cosmetic only. **No behaviour, protocol, wire, state-model, security, or egress change.**
+> Full record: [`../CHANGELOG.md`](../CHANGELOG.md) (0.11.0–0.11.1).
+
+### U7.1 Changes
+
+- Both pages reskinned with a warm "Anthropic-inspired" palette — ivory paper `#faf9f5`,
+  warm near-black ink `#141413`, **terracotta accent `#b0512e`** (light) / **clay `#d97757`**
+  (dark), greige borders, cream surfaces — replacing the earlier cool blue (`#2563eb`) / gray
+  look.
+- Brand wordmark now uses a **Georgia serif** display face (no external/proprietary fonts, so
+  the no-egress CSP is untouched); UI / body text stays system-sans.
+- Colors hoisted to `:root` CSS custom properties (one authoritative home per page); **dark
+  mode** swaps the token values once via `@media (prefers-color-scheme: dark)`.
+- **WCAG-AA** contrast for accent + muted tones on both paper and cream backgrounds; the
+  `theme-color`, PWA manifest, app icons, and inline favicon were warmed to match (v0.11.1).
+
+### U7.2 Effect on the architecture
+
+- **§23 Experience Architecture:** the visual direction is now the warm terracotta / serif
+  palette above; honest-progress, verified-gate, and stall-guidance behaviour are unchanged.
+- No ADR change; nothing in §1–§22 or the security model is affected.
+
+### U7.3 Verdict
+
+**Architecture Update Required? — Cosmetic; recorded as update-7.** Read the base design as
+patched by §5, §U2.3, §U3.2, §U4.2, §U5.2, §U6.2, and §U7.1.

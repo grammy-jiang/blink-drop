@@ -52,29 +52,40 @@ Deliberately split so the **protocol-facing core is pure and reused by the PWA r
 
 ```
 web/
-├── index.html
+├── index.html                # sender page
+├── receiver.html             # PWA receiver page (installable)
 ├── src/
-│   ├── core/                 # PURE, no DOM — the protocol envelope. Unit-tested against shared vectors.
-│   │   ├── envelope.ts       #   file → gzip → build dCBOR message [header, payload]; and the inverse (for M0 receiver)
-│   │   ├── ur.ts             #   wrap @ngraveio/bc-ur: message ⇄ UR part stream
+│   ├── core/                 # PURE, no DOM — reused verbatim by sender AND receiver; unit-tested against shared vectors.
+│   │   ├── cbor.ts           #   minimal deterministic CBOR for [header, payload] / [outer, ciphertext] (depth-bounded, v0.10)
+│   │   ├── envelope.ts       #   file(s) ⇄ message; single / encrypted / multi-file variants; per-file SHA-256 gate (SG-1)
+│   │   ├── ur.ts             #   wrap @ngraveio/bc-ur: message ⇄ UR part stream (the only bc-ur boundary)
 │   │   ├── digest.ts         #   SHA-256(original) → header field; verify on the receive path
 │   │   ├── gzip.ts           #   CompressionStream wrappers (compress / bounded-decompress, protocol §9)
-│   │   └── types.ts          #   Header, Message, protocol constants (keys, compression enum)
+│   │   ├── crypto.ts         #   opt-in passphrase encryption: AES-256-GCM + Argon2id (default) / PBKDF2 (v0.3/v0.4)
+│   │   ├── types.ts          #   Header, Message, protocol constants (keys, compression + KDF enums)
+│   │   └── index.ts          #   public API: encode/decode{File,Files}ToQrParts
 │   ├── qr/
-│   │   └── render.ts         #   UR part → uppercase → qrcode-generator(alphanumeric, ECC-L) → canvas; + renderTextToCanvas (the static receiver-URL QR, ECC-M)
+│   │   ├── render.ts         #   render (qrcode-generator, alphanumeric+ECC-L) + the static receiver-URL QR
+│   │   └── scan.ts           #   decode a canvas frame via jsQR
 │   ├── player/
 │   │   ├── sequencer.ts      #   drive UREncoder; precompute the frame set (Prepared state, L5)
 │   │   └── loop.ts           #   rAF loop at {rate, scale}; cycle counter; pause/resume (R-ADJUST)
+│   ├── receiver/             #   PWA receiver surface (not part of core)
+│   │   ├── camera.ts         #   getUserMedia → video → canvas → jsQR (deduped UR strings)
+│   │   ├── share.ts          #   Web Share API + download fallback
+│   │   ├── bundle.ts         #   multi-file .zip via fflate
+│   │   └── resume.ts         #   resume across restart: partial encrypted at rest (IndexedDB)
 │   ├── ui/
-│   │   ├── state.ts          #   §6.1 machine: Idle→Loaded→Prepared→Playing→Paused→Stopped
-│   │   ├── dropzone.ts       #   file pick / drag-drop
-│   │   ├── estimate.ts       #   frame count × rate → pre-transfer ETA; live update on control change
-│   │   └── controls.ts       #   rate + scale sliders; cycle/elapsed display
-│   └── main.ts               # wire-up
-└── test/                     # Vitest: tier-1 framing + tier-2 round-trip (shared/test-vectors)
+│   │   ├── sender.ts         #   sender page entry: §6.1 machine + dropzone/plan/controls wiring
+│   │   ├── receiver.ts       #   receiver page entry: scan → progress → verify → share wiring
+│   │   ├── debug.ts          #   the receiver.html?debug loopback/stream self-tests
+│   │   └── size.ts           #   human-readable byte sizes
+│   └── polyfill.ts           #   Buffer + process shims bc-ur needs in the browser
+├── scripts/                  # gen-vectors, gen-icons, gen-static-qr
+└── test/                     # Vitest: core, crypto, vectors, edge, resume, receiver (+ shared/test-vectors)
 ```
 
-**Hard boundary:** `core/` never imports from `qr/`, `player/`, or `ui/`. It is the piece the browser receiver (M0) links against unchanged, and the piece the test vectors bind to.
+**Hard boundary:** `core/` never imports from `qr/`, `player/`, `ui/`, or `receiver/`. It is the piece reused verbatim by both the sender and the PWA receiver, and the piece the test vectors bind to.
 
 ## 4. Data flow (maps to blueprint §6.1 states)
 
@@ -98,7 +109,7 @@ web/
 
 ## 5. Offline packaging (OQ-9, R-OFFLINE)
 
-- `vite build` + `vite-plugin-singlefile` → **one `blink-drop.html`** with all JS/CSS inlined (bc-ur + qrcode-generator bundled, no external requests).
+- `npm run build:sender` (`vite build` + `vite-plugin-singlefile`) → **one self-contained `dist-sender/index.html`** with all JS/CSS inlined (bc-ur + qrcode-generator + the Argon2 wasm base64-embedded, no external requests). The Pages build (`npm run build`) emits the multi-file sender `dist/index.html` + PWA receiver `dist/receiver.html` instead.
 - Ship it as a build artifact the user saves and copies to any machine — including a cold air-gapped one (U1). Open in any modern browser; it runs with the network cable unplugged.
 - **CSP** meta tag forbids any external origin and `connect-src 'none'` — makes "the file never leaves the machine" enforceable, not just promised. (Blueprint privacy claim → mechanically true.)
 
@@ -124,9 +135,10 @@ Fragment size (→ symbol version) is chosen once at `Loaded` from the seed defa
 
 ## 9. Testing
 
-- **Tier-1 framing** (`shared/test-vectors/framing`): feed the canonical compressed payload through `core/ur.ts`, assert the emitted `ur:blink-drop/...` strings match `parts.txt` byte-for-byte (protocol §10). Runs in Vitest, no browser needed.
-- **Tier-2 round-trip** (`shared/test-vectors/roundtrip`): `envelope.encode` → `envelope.decode` → assert `SHA-256 == meta.sha256`. Exercises the whole `core/` both ways (the decode path is what M0's receiver uses).
-- **Manual/e2e**: the M0 browser receiver (`04-roadmap.md`) is the first real screen→camera test of this sender.
+- **Unit + conformance (Vitest — ~176 cases, coverage-gated).** The shared `shared/test-vectors/` bind the core both ways: **tier-1 framing** (feed the canonical compressed payload through `core/ur.ts`; assert the `ur:blink-drop/...` strings match `parts.txt` byte-for-byte, protocol §10) and **tier-2 round-trip** (`envelope` encode → decode → `SHA-256 == meta.sha256`). Plus core / crypto / cbor-depth / edge / fuzz / multifile / resume / receiver suites. CI gates coverage (lines 85 / stmts 82 / funcs 77 / branches 77; core 90/90/90/82).
+- **Cross-browser E2E (Playwright — chromium + firefox + webkit).** Camera-free optical loopback + a `captureStream` synthetic-camera streamtest + a deterministic **visual-contract** spec + **pixel** screenshots (`web/e2e/`); browsers cached in CI.
+- **Mutation testing (Stryker).** On `src/core` (cbor / digest / envelope / ur / gzip; `crypto.ts` intentionally excluded), core ~76%, run **weekly** (not per-PR).
+- **Lighthouse a11y gate** in CI (≥0.95). Real-optics is still confirmed manually on the target iPhone; the `receiver.html?debug` loopback/stream self-tests remain the quick local check.
 
 ## 10. Handoff
 
