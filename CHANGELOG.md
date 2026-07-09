@@ -3,6 +3,21 @@
 All notable changes to Blink-Drop are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## 0.11.1 — 2026-07-09
+
+Warm the installed-app icons to finish the v0.11.0 restyle.
+
+### Changed
+
+- Regenerated the home-screen / PWA icons (`icon-192`, `icon-512`,
+  `icon-maskable-512`, `apple-touch-icon`) from the favicon geometry with the
+  warm mark — dark tile, light QR modules, terracotta dot. They were still the
+  old dark-blue mark, so an installed icon didn't match the new UI.
+- Unified the brand terracotta to `#b0512e` (the AA-safe accent); the inline
+  favicon dot was still the brighter `#c6613f`. One terracotta everywhere now.
+- Added `npm run gen:icons` (`scripts/gen-icons.mjs`) so the icons are
+  reproducible from one source of geometry.
+
 ## 0.11.0 — 2026-07-09
 
 Anthropic-inspired visual restyle of both pages — same layout, warmer skin.
