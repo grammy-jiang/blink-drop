@@ -62,6 +62,20 @@ jobs:
           echo "offline single-file sender inlines its JS, so it DOES keep 'unsafe-inline'"
           grep -oE "script-src[^;]*" dist-sender/index.html | grep -q "unsafe-inline"
           echo "CSP invariants OK"
+      # Size budget for the offline single-file sender: it inlines ALL its JS, so
+      # a dependency / tree-shaking regression shows up here first (vite 8 bit
+      # this once, ~289 → 27 KB-chunk mismatch). Fail the build on a balloon
+      # instead of catching it by hand.
+      - name: Offline sender size budget
+        run: |
+          set -euo pipefail
+          max=322560 # 315 KiB — ~10% headroom over the current ~285 KiB
+          bytes=$(stat -c%s dist-sender/index.html)
+          printf 'offline sender: %d bytes (budget %d)\n' "$bytes" "$max"
+          if [ "$bytes" -gt "$max" ]; then
+            echo "::error::offline sender ${bytes} B exceeds budget ${max} B (+$((bytes - max)) B) — check for a dependency / tree-shaking regression"
+            exit 1
+          fi
 
   audit:
     name: web · supply-chain audit
