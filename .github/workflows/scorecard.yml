@@ -1,0 +1,44 @@
+name: Scorecard supply-chain security
+
+on:
+  # Weekly, plus on every push to the default branch so the score tracks main.
+  schedule:
+    - cron: "27 6 * * 1" # Mondays 06:27 UTC
+  push:
+    branches: [main]
+  # Branch-protection rules factor into the score — re-run when they change.
+  branch_protection_rule:
+
+# Least privilege at the top; the analysis job raises only what it needs.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write # upload the SARIF to the Security tab
+      id-token: write # publish results to the OpenSSF API (badge)
+    steps:
+      - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
+        with:
+          persist-credentials: false
+      - name: Run analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publish to the public OpenSSF dashboard + enable the README badge.
+          # Set to false for Security-tab-only (no external publish).
+          publish_results: true
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        with:
+          sarif_file: results.sarif
