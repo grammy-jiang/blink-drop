@@ -15,8 +15,10 @@ supported. There are no long-term support branches.
 Please report security issues **privately** — do not open a public issue or PR
 for a suspected vulnerability.
 
-- Preferred: open a private report via GitHub → the repository's **Security**
-  tab → **Report a vulnerability** (GitHub Private Vulnerability Reporting).
+- Preferred: open a private report at
+  https://github.com/grammy-jiang/blink-drop/security/advisories/new
+  (GitHub → the repository's **Security** tab → **Report a vulnerability**,
+  i.e. GitHub Private Vulnerability Reporting).
 - Include: affected version/commit, a description, and a minimal reproduction if
   you have one.
 
