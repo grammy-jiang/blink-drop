@@ -111,11 +111,13 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
-      # Real-browser E2E: builds the site, serves it (vite preview), and runs the
-      # sender + receiver flows in chromium (fake media device). Covers the live
-      # camera loop + the full render→scan→verify pipeline that unit tests can't.
+      - name: Install Playwright browsers (chromium, firefox, webkit)
+        run: npx playwright install --with-deps chromium firefox webkit
+      # Real-browser E2E across all three engines: builds the site, serves it
+      # (vite preview), and runs the sender + receiver flows + optical round-trips
+      # (render→scan→reconstruct→verify, incl. encrypted + tamper-rejection).
+      # WebKit = Safari's engine, the receiver's iOS target; getUserMedia-based
+      # specs self-skip there (no fake camera device).
       - name: Playwright E2E
         run: npm run e2e
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

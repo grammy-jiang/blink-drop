@@ -24,6 +24,28 @@ export default defineConfig({
         },
       },
     },
+    {
+      // Firefox with a fake getUserMedia device (prefs, not CLI flags).
+      name: "firefox",
+      use: {
+        ...devices["Desktop Firefox"],
+        launchOptions: {
+          firefoxUserPrefs: {
+            "media.navigator.streams.fake": true,
+            "media.navigator.permission.disabled": true,
+          },
+        },
+      },
+    },
+    {
+      // WebKit = Safari's engine — the receiver's real iOS target. Playwright
+      // WebKit has no fake-camera device, so getUserMedia-based specs skip
+      // themselves here (see e2e specs); the ?streamtest optical pipeline uses
+      // canvas.captureStream (no camera) and DOES run, proving the whole
+      // render→scan→reconstruct→verify path works in Safari's engine.
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
   // `npm run e2e` builds first; preview serves web/dist at /blink-drop/.
   webServer: {
