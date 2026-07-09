@@ -10,6 +10,13 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["line"]] : [["list"]],
+  // Pixel-screenshot comparison (e2e/pixel.spec.ts): disable animations and allow
+  // a small pixel-ratio delta so cross-distro font anti-aliasing (Fedora dev vs
+  // ubuntu CI) doesn't cause false diffs, while a real change (re-coloured button,
+  // moved element) still exceeds it.
+  expect: {
+    toHaveScreenshot: { maxDiffPixelRatio: 0.04, animations: "disabled", caret: "hide" },
+  },
   use: {
     baseURL: "http://localhost:4173/blink-drop/",
     trace: "on-first-retry",
