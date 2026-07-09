@@ -308,6 +308,10 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Stryker mutation testing (sandbox + generated report)
+.stryker-tmp/
+web/reports/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
