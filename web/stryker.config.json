@@ -8,5 +8,5 @@
   "htmlReporter": { "fileName": "reports/mutation/index.html" },
   "concurrency": 4,
   "timeoutMS": 60000,
-  "thresholds": { "high": 80, "low": 60, "break": 50 }
+  "thresholds": { "high": 80, "low": 65, "break": 65 }
 }
