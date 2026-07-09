@@ -125,8 +125,25 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - name: Install Playwright browsers (chromium, firefox, webkit)
+      - name: Resolve Playwright version
+        id: pw
+        run: |
+          V=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      # Cache hit restores the browser binaries; only the apt system deps need
+      # reinstalling. Miss installs both. (Saves the ~browser download each run.)
+      - name: Install Playwright browsers + system deps
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium firefox webkit
+      - name: Install Playwright system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps
       # Real-browser E2E across all three engines: builds the site, serves it
       # (vite preview), and runs the sender + receiver flows + optical round-trips
       # (render→scan→reconstruct→verify, incl. encrypted + tamper-rejection).

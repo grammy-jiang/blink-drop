@@ -19,16 +19,16 @@ export default defineConfig({
       exclude: ["src/ui/debug.ts", "src/polyfill.ts", "src/**/*.d.ts"],
       reporter: ["text-summary", "json-summary"],
       thresholds: {
-        // Global floor (headroom below the current 86.6% lines / 82.7% branches),
-        // so a coverage regression fails CI. The last stretch to >95% is Tier 3:
-        // resume.ts (IndexedDB) + camera.ts's scan loop are browser-only and are
-        // covered by the Playwright E2E suite, not node unit tests (docs/20).
-        // Baselined to vitest-4 / coverage-v8-4 measurement (it attributes
-        // functions/branches differently from v3 — same tests, different numbers).
-        lines: 84,
-        statements: 80,
-        functions: 75,
-        branches: 72,
+        // Global floor (~1pt under the current 86 lines / 83 stmts / 78 branches /
+        // 78 funcs), so a coverage regression fails CI. Rebaselined upward after
+        // the cbor/envelope/ur mutation-kill tests raised branch coverage. The
+        // last stretch to >95% is Tier 3: resume.ts (IndexedDB) + camera.ts's scan
+        // loop are browser-only and are covered by the Playwright E2E suite, not
+        // node unit tests (docs/20).
+        lines: 85,
+        statements: 82,
+        functions: 77,
+        branches: 77,
         // The security-critical core is fully unit-testable — gate it harder.
         "src/core/**/*.ts": { lines: 90, statements: 90, functions: 90, branches: 82 },
       },
