@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.11.1",
   "type": "module",
+  "license": "MIT",
   "description": "Blink-Drop web sender — offline animated-QR file transfer (sender half). See ../docs.",
   "scripts": {
     "dev": "vite",
@@ -49,5 +50,8 @@
     "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-singlefile": "^2.1.0",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "qs": "6.15.3"
   }
 }
