@@ -495,3 +495,8 @@ web/test-results/
 web/playwright-report/
 web/playwright/.cache/
 .lighthouseci/
+
+# Release artifacts (generated in CI, uploaded to the GitHub Release — never committed)
+web/sbom.cdx.json
+web/blink-drop-sbom-*.cdx.json
+web/blink-drop-sender-*.html
