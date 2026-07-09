@@ -12,7 +12,7 @@ architecture (+ update notes), and UX design; this README is how to work in `web
   in browser and node; bound to `../shared/test-vectors/`.
 - **Sender** (`index.html` + `src/ui/sender.ts`) — pick or **drop** **one or more
   files** → plan/ETA → animated QR canvas; rate/density controls; optional
-  **passphrase** (AES-256-GCM; PBKDF2 or opt-in **Argon2id**) + strength hint;
+  **passphrase** (AES-256-GCM; **Argon2id** by default, PBKDF2 opt-out) + strength hint;
   soft-ceiling warning; a receiver-URL QR.
 - **PWA receiver** (`receiver.html` + `src/ui/receiver.ts`) — camera scan → whole-%
   progress + stall guidance → **per-file** SHA-256 verify → Web Share; **multi-file
@@ -42,7 +42,7 @@ src/
     cbor.ts       #   minimal deterministic CBOR for the [header, payload] / [outer, ciphertext] message
     gzip.ts       #   bounded gzip/gunzip (CompressionStream); decompression-bomb guard (SG-2)
     digest.ts     #   SHA-256 (WebCrypto)
-    crypto.ts     #   passphrase encryption: AES-256-GCM + PBKDF2 / opt-in Argon2id (hash-wasm)
+    crypto.ts     #   passphrase encryption: AES-256-GCM + Argon2id (default) / PBKDF2 (hash-wasm)
     types.ts      #   protocol constants + Header / envelope shapes
     envelope.ts   #   file(s) <-> message; single/encrypted/multi-file variants; per-file SHA-256 gate (SG-1)
     ur.ts         #   message <-> UR/MUR parts (bc-ur); the only bc-ur boundary
