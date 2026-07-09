@@ -20,7 +20,7 @@ import { downloadFile, shareOrDownload, shareOrDownloadMany } from "../receiver/
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
 const params = new URLSearchParams(location.search);
-if (params.has("debug") || params.has("selftest") || params.has("streamtest")) {
+if (params.has("debug") || params.has("selftest") || params.has("streamtest") || params.has("loopback")) {
   import("./debug.js").then((m) => m.mountDebug(document.getElementById("app") as HTMLElement));
 } else {
   main();

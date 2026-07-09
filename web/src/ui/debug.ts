@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_FRAGMENT_LENGTH,
   type DecodedFile,
   type FileInput,
+  KDF_ARGON2ID,
   openMessage,
   qrPartStream,
   systematicQrParts,
@@ -102,10 +103,31 @@ export async function runSelfTest(): Promise<{ ok: boolean; cases: CaseResult[] 
   return summary;
 }
 
-export async function runStreamTest(): Promise<{ ok: boolean; seqLen: number; frames: number; verified: boolean }> {
-  logSink("stream test: sender canvas → captureStream → video → scan loop → verify…");
+export interface StreamTestSummary {
+  ok: boolean;
+  seqLen: number;
+  frames: number;
+  reconstructed: boolean;
+  verified: boolean;
+  rejected: boolean;
+  encrypted: boolean;
+  tampered: boolean;
+}
+
+// Optical round-trip proof, parametrised so the E2E suite can exercise the real
+// pipeline in every browser (incl. WebKit = Safari's engine):
+//   - plain:     sender canvas → captureStream → scan → reconstruct → verify
+//   - encrypted: same, but AES-GCM + Argon2id (proves the WASM KDF cross-browser)
+//   - tamper:    flip bytes in the reconstructed message → the SHA-256 gate (or
+//                AEAD tag) MUST reject it. Corrupt data is never "verified" —
+//                the receiver's core security invariant.
+export async function runStreamTest(opts: { passphrase?: string; tamper?: boolean } = {}): Promise<StreamTestSummary> {
+  const { passphrase, tamper = false } = opts;
+  const encrypted = !!passphrase;
+  const mode = tamper ? "tamper" : encrypted ? "encrypted" : "plain";
+  logSink(`stream test (${mode}): sender canvas → captureStream → video → scan loop → verify…`);
   const input: FileInput = { bytes: pseudoBytes(2500, 7), name: "stream.bin", mediaType: "application/octet-stream" };
-  const message = await buildMessage(input);
+  const message = await buildMessage(input, encrypted ? { passphrase, kdf: KDF_ARGON2ID } : {});
   const frag = 200;
   const seqLen = systematicQrParts(message, frag).length;
   const parts = qrPartStream(message, seqLen * 3, frag);
@@ -138,15 +160,121 @@ export async function runStreamTest(): Promise<{ ok: boolean; seqLen: number; fr
   }
   player.stop();
   for (const t of stream.getTracks()) t.stop();
+
+  const reconstructed = asm.isSuccess;
   let verified = false;
-  if (asm.isSuccess) {
-    const decoded = await openMessage(asm.message());
-    verified = bytesEqual(decoded.bytes, input.bytes);
+  let rejected = false;
+  if (reconstructed) {
+    let bytes = asm.message();
+    if (tamper) {
+      bytes = bytes.slice();
+      const mid = Math.floor(bytes.length / 2);
+      for (const i of [mid, mid + 1, mid + 2]) bytes[i] = ((bytes[i] ?? 0) ^ 0xff) & 0xff;
+    }
+    try {
+      const decoded: DecodedFile = await openMessage(bytes, encrypted ? { passphrase } : {});
+      verified = bytesEqual(decoded.bytes, input.bytes);
+    } catch {
+      // Expected for tamper (SHA/AEAD reject); a failure for the honest modes.
+      rejected = true;
+    }
   }
-  logSink(`• seqLen=${seqLen} frames-sampled=${frames} reconstructed=${asm.isSuccess} verified=${verified}`);
-  logSink(asm.isSuccess && verified ? "STREAM TEST PASS ✓" : "STREAM TEST FAIL ✗");
-  const summary = { ok: asm.isSuccess && verified, seqLen, frames, verified };
-  (window as unknown as { __streamtest: typeof summary }).__streamtest = summary;
+
+  // Success = the mode behaved correctly: tamper must NOT verify (rejected or a
+  // content mismatch); plain/encrypted must verify.
+  const ok = reconstructed && (tamper ? !verified : verified);
+  logSink(
+    `• mode=${mode} seqLen=${seqLen} frames=${frames} reconstructed=${reconstructed} verified=${verified} rejected=${rejected}`,
+  );
+  logSink(ok ? "STREAM TEST PASS ✓" : "STREAM TEST FAIL ✗");
+  const summary: StreamTestSummary = {
+    ok,
+    seqLen,
+    frames,
+    reconstructed,
+    verified,
+    rejected,
+    encrypted,
+    tampered: tamper,
+  };
+  (window as unknown as { __streamtest: StreamTestSummary }).__streamtest = summary;
+  return summary;
+}
+
+export interface LoopbackSummary {
+  ok: boolean;
+  parts: number;
+  scanned: number;
+  reconstructed: boolean;
+  verified: boolean;
+  rejected: boolean;
+  encrypted: boolean;
+  tampered: boolean;
+}
+
+// Camera-free optical loopback: core → QR render → jsQR scan → reconstruct →
+// [optional tamper] → open → verify. Unlike runStreamTest it uses NO
+// captureStream / <video> / getUserMedia, so it runs in every engine — including
+// Playwright's WebKit, whose captureStream yields no frames. This proves the
+// jsQR decode + core reconstruct + AES-GCM/Argon2id/SHA-256 stack in Safari's
+// engine (the receiver's iOS target); the live camera transport itself can only
+// be validated on a real device.
+export async function runLoopback(opts: { passphrase?: string; tamper?: boolean } = {}): Promise<LoopbackSummary> {
+  const { passphrase, tamper = false } = opts;
+  const encrypted = !!passphrase;
+  const mode = tamper ? "tamper" : encrypted ? "encrypted" : "plain";
+  logSink(`loopback (${mode}): core → render → jsQR → reconstruct → verify (camera-free)…`);
+  const input: FileInput = { bytes: pseudoBytes(2500, 7), name: "loop.bin", mediaType: "application/octet-stream" };
+  const message = await buildMessage(input, encrypted ? { passphrase, kdf: KDF_ARGON2ID } : {});
+  const parts = systematicQrParts(message, 200);
+  const cv = document.createElement("canvas");
+  const asm = new Assembler();
+  let scanned = 0;
+  let idx = 0;
+  for (const part of parts) {
+    renderUrToCanvas(part, cv, { scale: 5, margin: 4 });
+    const got = scanCanvas(cv);
+    if (got !== null) {
+      scanned++;
+      asm.receiveQr(got);
+    }
+    if (++idx % 8 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+
+  const reconstructed = asm.isSuccess;
+  let verified = false;
+  let rejected = false;
+  if (reconstructed) {
+    let bytes = asm.message();
+    if (tamper) {
+      bytes = bytes.slice();
+      const mid = Math.floor(bytes.length / 2);
+      for (const i of [mid, mid + 1, mid + 2]) bytes[i] = ((bytes[i] ?? 0) ^ 0xff) & 0xff;
+    }
+    try {
+      const decoded: DecodedFile = await openMessage(bytes, encrypted ? { passphrase } : {});
+      verified = bytesEqual(decoded.bytes, input.bytes);
+    } catch {
+      rejected = true;
+    }
+  }
+
+  const ok = reconstructed && (tamper ? !verified : verified);
+  logSink(
+    `• mode=${mode} parts=${parts.length} scanned=${scanned} reconstructed=${reconstructed} verified=${verified} rejected=${rejected}`,
+  );
+  logSink(ok ? "LOOPBACK PASS ✓" : "LOOPBACK FAIL ✗");
+  const summary: LoopbackSummary = {
+    ok,
+    parts: parts.length,
+    scanned,
+    reconstructed,
+    verified,
+    rejected,
+    encrypted,
+    tampered: tamper,
+  };
+  (window as unknown as { __loopback: LoopbackSummary }).__loopback = summary;
   return summary;
 }
 
@@ -185,5 +313,8 @@ export function mountDebug(root: HTMLElement): void {
 
   const params = new URLSearchParams(location.search);
   if (params.has("selftest")) void runSelfTest();
-  if (params.has("streamtest")) void runStreamTest();
+  if (params.has("streamtest"))
+    void runStreamTest({ passphrase: params.get("pass") ?? undefined, tamper: params.has("tamper") });
+  if (params.has("loopback"))
+    void runLoopback({ passphrase: params.get("pass") ?? undefined, tamper: params.has("tamper") });
 }
