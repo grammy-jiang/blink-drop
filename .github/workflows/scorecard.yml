@@ -12,6 +12,11 @@ on:
 # Least privilege at the top; the analysis job raises only what it needs.
 permissions: read-all
 
+# Cancel a superseded run (e.g. rapid pushes to main).
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analysis:
     name: Scorecard analysis
@@ -21,6 +26,9 @@ jobs:
       security-events: write # upload the SARIF to the Security tab
       id-token: write # publish results to the OpenSSF API (badge)
     steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
       - uses: actions/checkout@6026fb2ad3aa556d78b517cf65c8c1f832075860 # v5
         with:
           persist-credentials: false
