@@ -3,6 +3,12 @@ name: Release assets
 # When a GitHub Release is published, build the offline single-file sender and
 # attach it so people can download the self-contained tool (one HTML file that
 # runs anywhere, no clone/build/server) straight from the Releases page.
+#
+# The download also gets a verifiable supply-chain trail:
+#   - a SLSA build-provenance attestation binding the HTML's digest to the exact
+#     commit + workflow run (verify: `gh attestation verify <file> --repo ...`);
+#   - a CycloneDX SBOM of the runtime deps inlined in the bundle, itself attested
+#     to the artifact. See docs/22-release-provenance-plan.md.
 on:
   release:
     types: [published]
@@ -17,6 +23,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # upload the asset to the release
+      id-token: write # Sigstore OIDC signing for the attestations
+      attestations: write # write the provenance + SBOM attestations
     defaults:
       run:
         working-directory: web
@@ -35,13 +43,41 @@ jobs:
       - run: npm ci
       - name: Build offline single-file sender
         run: npm run build:sender
-      - name: Attach to the release
+
+      - name: Package the asset + generate its SBOM
         # TAG via env (not ${{ }} in the script) to avoid a shell-injection sink.
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          cp dist-sender/index.html "blink-drop-sender-${TAG}.html"
+          # CycloneDX BOM of the runtime deps inlined in the bundle (--omit dev).
+          npm run sbom
+          cp sbom.cdx.json "blink-drop-sbom-${TAG}.cdx.json"
+
+      - name: Upload the asset + SBOM to the release
+        # Upload BEFORE attesting: an attestation binds by digest, independent of
+        # where the file is stored, so a transient Sigstore/Fulcio outage cannot
+        # strip the download — a failed attest still reddens the job (visible,
+        # re-runnable). Fail-open on availability, never on integrity.
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          asset="blink-drop-sender-${TAG}.html"
-          cp dist-sender/index.html "$asset"
-          gh release upload "$TAG" "$asset" --clobber
+          gh release upload "$TAG" \
+            "blink-drop-sender-${TAG}.html" \
+            "blink-drop-sbom-${TAG}.cdx.json" --clobber
+
+      # `uses:` steps ignore defaults.run.working-directory — paths are repo-root
+      # relative (web/…). Glob avoids interpolating the tag into an action input.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: web/blink-drop-sender-*.html
+
+      - name: Attest the SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: web/blink-drop-sender-*.html
+          sbom-path: web/sbom.cdx.json

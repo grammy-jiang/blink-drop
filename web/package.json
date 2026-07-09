@@ -22,7 +22,8 @@
     "build:sender": "vite build --config vite.config.sender.ts",
     "gen:vectors": "tsx scripts/gen-vectors.ts",
     "gen:static-qr": "tsx scripts/gen-static-qr.ts",
-    "gen:icons": "tsx scripts/gen-icons.ts"
+    "gen:icons": "tsx scripts/gen-icons.ts",
+    "sbom": "cyclonedx-npm --omit dev --output-reproducible --output-format JSON --output-file sbom.cdx.json"
   },
   "dependencies": {
     "@ngraveio/bc-ur": "^1.1.13",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.3",
+    "@cyclonedx/cyclonedx-npm": "^6.0.0",
     "@napi-rs/canvas": "^1.0.2",
     "@playwright/test": "^1.61.1",
     "@stryker-mutator/core": "^9.6.1",
