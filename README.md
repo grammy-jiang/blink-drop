@@ -1,5 +1,9 @@
 # Blink-Drop
 
+[![CI](https://github.com/grammy-jiang/blink-drop/actions/workflows/ci.yml/badge.svg)](https://github.com/grammy-jiang/blink-drop/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/grammy-jiang/blink-drop/badge)](https://scorecard.dev/viewer/?uri=github.com/grammy-jiang/blink-drop)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Offline small-file transfer via animated QR codes. A **web sender** (static,
 client-side, no backend) turns a file into an animated sequence of QR codes; an
 **installable web app (PWA) receiver** watches the screen through a phone's
