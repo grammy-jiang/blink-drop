@@ -37,7 +37,7 @@ jobs:
       # vitest/esbuild). --no-save keeps the committed lockfile on TS 7. Remove
       # once Stryker supports TS 7.
       - name: Pin TypeScript 6 for Stryker
-        run: npm i typescript@6 --no-save
+        run: npm i typescript@6.0.3 --no-save # exact pin (Scorecard PinnedDependencies)
       - name: Mutation test src/core
         run: npm run mutation
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
