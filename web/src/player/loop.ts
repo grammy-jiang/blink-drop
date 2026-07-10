@@ -1,6 +1,9 @@
-// Animates a precomputed set of QR part strings on a canvas at a given frame
-// rate and scale (blueprint §6.1 Playing state). Rate and scale are the two
-// mutable presentation knobs (R-ADJUST); the parts themselves are fixed.
+// Animates a QR-part STREAM on a canvas at a given frame rate and scale
+// (blueprint §6.1 Playing state). The source is a producer called once per
+// displayed frame — an ENDLESS fountain stream (encoder.nextPart), NOT a fixed
+// looped set: every frame is a fresh mixture, so the receiver never waits a loop
+// boundary to re-catch a missed fragment (docs/23, "last-1% tail"). Rate and
+// scale are the two mutable presentation knobs (R-ADJUST).
 import { renderUrToCanvas } from "../qr/render.js";
 
 export interface FrameInfo {
@@ -14,9 +17,9 @@ export class FramePlayer {
   scale: number;
   onFrame?: (info: FrameInfo) => void;
 
-  private parts: string[] = [];
-  private index = 0;
-  private cycles = 0;
+  private next: (() => string) | null = null;
+  private total = 0;
+  private count = 0;
   private raf = 0;
   private lastDraw = 0;
   private running = false;
@@ -29,15 +32,18 @@ export class FramePlayer {
     this.scale = opts.scale;
   }
 
-  load(parts: string[]): void {
-    this.parts = parts;
-    this.index = 0;
-    this.cycles = 0;
+  // `next` produces the next QR string each displayed frame (endless stream).
+  // `total` = the systematic part count — the denominator for the loop/ETA
+  // display in onFrame (index cycles 0..total-1, cycles = systematic passes shown).
+  load(next: () => string, total: number): void {
+    this.next = next;
+    this.total = total;
+    this.count = 0;
     this.lastDraw = 0;
   }
 
   start(): void {
-    if (this.running || this.parts.length === 0) return;
+    if (this.running || !this.next || this.total === 0) return;
     this.running = true;
     this.lastDraw = 0;
     this.raf = requestAnimationFrame(this.tick);
@@ -54,18 +60,14 @@ export class FramePlayer {
   }
 
   private tick = (t: number): void => {
-    if (!this.running) return;
+    if (!this.running || !this.next) return;
     const interval = 1000 / this.fps;
     if (this.lastDraw === 0 || t - this.lastDraw >= interval) {
       this.lastDraw = t;
-      const part = this.parts[this.index]!;
-      renderUrToCanvas(part, this.canvas, { scale: this.scale });
-      this.onFrame?.({ index: this.index, total: this.parts.length, cycles: this.cycles });
-      this.index++;
-      if (this.index >= this.parts.length) {
-        this.index = 0;
-        this.cycles++;
-      }
+      renderUrToCanvas(this.next(), this.canvas, { scale: this.scale });
+      const total = this.total || 1;
+      this.onFrame?.({ index: this.count % total, total, cycles: Math.floor(this.count / total) });
+      this.count++;
     }
     this.raf = requestAnimationFrame(this.tick);
   };

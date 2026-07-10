@@ -1,43 +1,26 @@
 import { describe, expect, it } from "vitest";
-import {
-  DEFAULT_MAX_FRAGMENT_LENGTH,
-  DEFAULT_REDUNDANCY,
-  MAX_FRAGMENT_LENGTH,
-  MAX_REDUNDANCY,
-  MIN_FRAGMENT_LENGTH,
-  MIN_REDUNDANCY,
-} from "../src/core/index.js";
+import { DEFAULT_MAX_FRAGMENT_LENGTH, MAX_FRAGMENT_LENGTH, MIN_FRAGMENT_LENGTH } from "../src/core/index.js";
 import { parseTransferParams } from "../src/ui/transfer-params.js";
 
 describe("parseTransferParams", () => {
-  it("returns the device-budget defaults when no params are present", () => {
-    const t = parseTransferParams("");
-    expect(t.frag).toBe(DEFAULT_MAX_FRAGMENT_LENGTH);
-    expect(t.redundancy).toBe(DEFAULT_REDUNDANCY);
+  it("returns the device-budget default when no param is present", () => {
+    expect(parseTransferParams("").frag).toBe(DEFAULT_MAX_FRAGMENT_LENGTH);
   });
 
-  it("reads valid in-range params", () => {
-    const t = parseTransferParams("?frag=900&redundancy=3");
-    expect(t.frag).toBe(900);
-    expect(t.redundancy).toBe(3);
+  it("reads a valid in-range fragment", () => {
+    expect(parseTransferParams("?frag=900").frag).toBe(900);
   });
 
-  it("clamps values above the range (no impossible-QR / runaway params)", () => {
-    const t = parseTransferParams("?frag=99999&redundancy=99");
-    expect(t.frag).toBe(MAX_FRAGMENT_LENGTH);
-    expect(t.redundancy).toBe(MAX_REDUNDANCY);
+  it("clamps above the range (no impossible-QR param)", () => {
+    expect(parseTransferParams("?frag=99999").frag).toBe(MAX_FRAGMENT_LENGTH);
   });
 
-  it("clamps values below the range", () => {
-    const t = parseTransferParams("?frag=1&redundancy=0");
-    expect(t.frag).toBe(MIN_FRAGMENT_LENGTH);
-    expect(t.redundancy).toBe(MIN_REDUNDANCY);
+  it("clamps below the range", () => {
+    expect(parseTransferParams("?frag=1").frag).toBe(MIN_FRAGMENT_LENGTH);
   });
 
-  it("falls back to defaults on non-numeric garbage (a typo must not brick a send)", () => {
-    const t = parseTransferParams("?frag=abc&redundancy=xyz");
-    expect(t.frag).toBe(DEFAULT_MAX_FRAGMENT_LENGTH);
-    expect(t.redundancy).toBe(DEFAULT_REDUNDANCY);
+  it("falls back to the default on non-numeric garbage (a typo must not brick a send)", () => {
+    expect(parseTransferParams("?frag=abc").frag).toBe(DEFAULT_MAX_FRAGMENT_LENGTH);
   });
 
   it("rounds a fractional fragment to an integer byte length", () => {
