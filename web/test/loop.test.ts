@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type FrameInfo, FramePlayer } from "../src/player/loop.js";
 
-// FramePlayer animates precomputed QR parts on a canvas. We mock the renderer
-// (its canvas output is irrelevant here) and stub requestAnimationFrame so ticks
-// can be driven at controlled timestamps — isolating the frame-advance / cycle /
+// FramePlayer animates a QR-part STREAM on a canvas. We mock the renderer (its
+// canvas output is irrelevant here) and stub requestAnimationFrame so ticks can
+// be driven at controlled timestamps — isolating the frame-advance / cycle /
 // fps-gating logic. rAF timestamps are always > 0 in a real browser (ms since
 // load), so the tests use positive times.
 vi.mock("../src/qr/render.js", () => ({ renderUrToCanvas: vi.fn() }));
@@ -12,6 +12,13 @@ import { renderUrToCanvas } from "../src/qr/render.js";
 
 const render = vi.mocked(renderUrToCanvas);
 const canvas = {} as HTMLCanvasElement;
+
+// A deterministic producer that cycles a known set — stands in for the endless
+// fountain stream so the cycle/index bookkeeping can be asserted against `total`.
+function cycle(parts: string[]): () => string {
+  let i = 0;
+  return () => parts[i++ % parts.length]!;
+}
 
 let rafCb: FrameRequestCallback | null = null;
 
@@ -37,9 +44,9 @@ afterEach(() => {
 });
 
 describe("FramePlayer", () => {
-  it("does not start with no parts loaded", () => {
+  it("does not start with an empty stream (total 0)", () => {
     const p = new FramePlayer(canvas, { fps: 10, scale: 6 });
-    p.load([]);
+    p.load(cycle([]), 0);
     p.start();
     expect(p.isRunning).toBe(false);
     expect(rafCb).toBeNull();
@@ -47,7 +54,7 @@ describe("FramePlayer", () => {
 
   it("draws the first frame immediately on start", () => {
     const p = new FramePlayer(canvas, { fps: 10, scale: 6 });
-    p.load(["ur:a", "ur:b"]);
+    p.load(cycle(["ur:a", "ur:b"]), 2);
     p.start();
     expect(p.isRunning).toBe(true);
     frame(1); // first tick (t>0)
@@ -57,25 +64,25 @@ describe("FramePlayer", () => {
 
   it("gates subsequent draws by fps (1000/fps ms)", () => {
     const p = new FramePlayer(canvas, { fps: 10, scale: 6 }); // interval 100ms
-    p.load(["ur:a", "ur:b", "ur:c"]);
+    p.load(cycle(["ur:a", "ur:b", "ur:c"]), 3);
     p.start();
-    frame(1); // draw a (index 0)
-    frame(50); // 49ms since last draw < 100 → no draw
+    frame(1); // draw a
+    frame(50); // 49ms since last draw < 100 → no draw (producer not advanced)
     expect(render).toHaveBeenCalledTimes(1);
-    frame(101); // 100ms elapsed → draw b (index 1)
+    frame(101); // 100ms elapsed → draw b
     expect(render).toHaveBeenCalledTimes(2);
     expect(render).toHaveBeenLastCalledWith("ur:b", canvas, { scale: 6 });
   });
 
-  it("wraps to the start and counts cycles", () => {
+  it("reports index within `total` and counts cycles across the stream", () => {
     const seen: FrameInfo[] = [];
     const p = new FramePlayer(canvas, { fps: 1000, scale: 6 }); // interval 1ms
     p.onFrame = (i) => seen.push({ ...i });
-    p.load(["ur:a", "ur:b"]);
+    p.load(cycle(["ur:a", "ur:b"]), 2);
     p.start();
-    frame(1); // a  (index 0, cycles 0)
-    frame(3); // b  (index 1, cycles 0)
-    frame(5); // wrap → a (index 0, cycles 1)
+    frame(1); // index 0, cycles 0
+    frame(3); // index 1, cycles 0
+    frame(5); // index 0, cycles 1
     expect(seen).toEqual([
       { index: 0, total: 2, cycles: 0 },
       { index: 1, total: 2, cycles: 0 },
@@ -85,7 +92,7 @@ describe("FramePlayer", () => {
 
   it("stop() halts drawing and cancels the frame", () => {
     const p = new FramePlayer(canvas, { fps: 1000, scale: 6 });
-    p.load(["ur:a", "ur:b"]);
+    p.load(cycle(["ur:a", "ur:b"]), 2);
     p.start();
     frame(1);
     expect(render).toHaveBeenCalledTimes(1);
@@ -98,7 +105,7 @@ describe("FramePlayer", () => {
 
   it("honors a live scale change", () => {
     const p = new FramePlayer(canvas, { fps: 1000, scale: 6 });
-    p.load(["ur:a", "ur:b"]);
+    p.load(cycle(["ur:a", "ur:b"]), 2);
     p.start();
     frame(1);
     p.scale = 9;
@@ -108,7 +115,7 @@ describe("FramePlayer", () => {
 
   it("start() is idempotent while already running", () => {
     const p = new FramePlayer(canvas, { fps: 10, scale: 6 });
-    p.load(["ur:a"]);
+    p.load(cycle(["ur:a"]), 1);
     p.start();
     const firstCb = rafCb;
     p.start(); // no second loop scheduled

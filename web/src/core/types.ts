@@ -98,18 +98,16 @@ export interface DecodedFile {
 //   800 B  → v24 QR (113²), ~4.1 px/module @1080p, scan holds **~19 fps** — GOOD.
 //   1200 B → v30 QR (137²): decodes, but scan CRATERED to **~4 fps** → far slower
 //            overall (the sender then out-runs the scanner). Reverted (test 2).
-//   2×     → fountain redundancy per loop (shortens the last-1% recovery).
-// Fragment + redundancy are overridable per-transfer via sender URL params; the
-// receiver's live scan-fps readout is the guide to the sweet spot on any device.
+// The sender streams fountain parts CONTINUOUSLY (no fixed redundancy multiple —
+// see ui/sender.ts), so fragment size is the one transport knob; it is
+// overridable per-transfer via the sender `?frag=` URL param, and the receiver's
+// live scan-fps readout is the guide to the sweet spot on any device.
 export const DEFAULT_MAX_FRAGMENT_LENGTH = 800; // bytes per UR fragment
-export const DEFAULT_REDUNDANCY = 2; // fountain parts per systematic part, per loop
-// Clamp ranges for the URL-param overrides. Fragment ≤ 1500 B keeps the QR ≤ v33,
-// well under the v40 (177²) ceiling, so a bad param can't demand an impossible
-// symbol — and leaves headroom to sweep above the default without a redeploy.
+// Clamp range for the `?frag=` override. ≤ 1500 B keeps the QR ≤ v33, well under
+// the v40 (177²) ceiling, so a bad param can't demand an impossible symbol — and
+// leaves headroom to sweep above the default without a redeploy.
 export const MIN_FRAGMENT_LENGTH = 300;
 export const MAX_FRAGMENT_LENGTH = 1500;
-export const MIN_REDUNDANCY = 1;
-export const MAX_REDUNDANCY = 5;
 
 // Hard decompression ceiling (protocol §9, SG-2) — independent of header.origSize.
 export const HARD_MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024;

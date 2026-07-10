@@ -134,7 +134,10 @@ export async function runStreamTest(opts: { passphrase?: string; tamper?: boolea
   const senderCanvas = document.createElement("canvas");
   renderUrToCanvas(parts[0]!, senderCanvas, { scale: 6, margin: 4 });
   const player = new FramePlayer(senderCanvas, { fps: 10, scale: 6 });
-  player.load(parts);
+  // Harness feeds its precomputed part set through the producer API (cycled);
+  // the optical capture path under test doesn't care about stream continuity.
+  let fi = 0;
+  player.load(() => parts[fi++ % parts.length]!, seqLen);
   player.start();
   const stream = senderCanvas.captureStream(15);
   const video = document.createElement("video");

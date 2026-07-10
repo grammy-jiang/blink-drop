@@ -36,8 +36,22 @@ the limit is **not** px/module (1200 decodes fine) but **decode time → scan fp
 Optimal fragment maximises *(bytes/frame × scan fps)* — an **interior** optimum
 (~800 B on this device), **not** the densest decodable QR. **Default reverted
 1200 → 800 B.** The measure-and-show design paid off — the receiver reported the
-regression itself. (The §2 table's 720p figures remain the original estimate
-trail; shipped values: 1080p camera, 800 B fragment, 2× redundancy.)
+regression itself.
+
+**On-device test 3 (2026-07-10) — residual last-1% tail → continuous streaming.**
+At 800 B the transfer was fast (392 KB / 15 files in 42 s, ~17 fps) but a **short**
+last-1% wait remained. Root cause: the sender **looped a fixed part set**
+(~184 frames ≈ 23 s/loop), so a missed fragment near the end waited a loop
+boundary to recur. Fix (shipped): the sender now **streams `encoder.nextPart()`
+continuously** — systematic parts first, then an endless run of fresh fountain
+mixtures — so a gap is filled by the next novel mixture, not a loop wait. Every
+scanned frame is new progress, so the "stuck at 99%" feeling is gone. `FramePlayer`
+now takes a frame *producer* instead of a fixed array; **the `redundancy` knob is
+retired** (an endless stream has no fixed multiple). This reverses the earlier
+"out of scope" call below — deprioritised for *overall* speed, but it is the right
+fix for the *tail* specifically, which was the actual complaint. (The §2 table's
+720p figures remain the original estimate trail; shipped: 1080p camera, 800 B
+fragment, continuous fountain stream.)
 
 ## 1. Problem
 
@@ -128,7 +142,8 @@ negotiate the budget at runtime. Chosen resolution (static + capability display)
 
 ## 7. Out of scope
 
-- Continuous `nextPart()` streaming — evaluated, modest middle-tier win; not worth
-  the player refactor now.
+- Continuous `nextPart()` streaming — ~~out of scope~~ **SHIPPED (test 3 above).**
+  Deprioritised for overall speed, but adopted as the fix for the residual last-1%
+  tail (its real strength). Retired the `redundancy` knob.
 - Manual chunking — measured neutral-to-worse for wall-clock; dropped.
 - CPU-adaptive scan interval — deferred (measure-and-show only for now).

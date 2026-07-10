@@ -1,12 +1,12 @@
 import "../polyfill.js";
-import { buildFilesMessage, type FileInput, qrPartStream, systematicQrParts } from "../core/index.js";
+import { buildFilesMessage, type FileInput, makeEncoder, systematicQrParts } from "../core/index.js";
 import { FramePlayer } from "../player/loop.js";
 import { renderTextToCanvas } from "../qr/render.js";
 import { describeSize } from "./size.js";
 import { parseTransferParams } from "./transfer-params.js";
 
-// Transport knobs sized to the device budget (docs/23), overridable per-transfer
-// via `?frag=` / `?redundancy=` for on-device tuning.
+// Fragment size sized to the device budget (docs/23), overridable per-transfer
+// via the `?frag=` URL param for on-device tuning.
 const transfer = parseTransferParams(location.search);
 
 function el<T extends HTMLElement>(id: string): T {
@@ -134,15 +134,19 @@ async function processFiles(files: File[]): Promise<void> {
     return;
   }
   seqLen = systematicQrParts(message, transfer.frag).length;
-  // Loop the systematic parts plus a redundancy set of fountain parts (blueprint
-  // L5/§7). Fragment size + redundancy come from the device budget / URL params.
-  const parts = qrPartStream(message, Math.ceil(seqLen * transfer.redundancy), transfer.frag);
+  // Stream fountain parts CONTINUOUSLY: one encoder, its nextPart() called per
+  // displayed frame — systematic parts first, then an ENDLESS run of fresh
+  // mixtures (blueprint L5/§7). Unlike a fixed looped set, a missed fragment is
+  // recovered by the next novel mixture, not by waiting a loop boundary — this is
+  // the fix for the residual last-1% tail (docs/23). `redundancy` is retired as a
+  // knob: an endless stream has no fixed redundancy multiple.
+  const encoder = makeEncoder(message, transfer.frag);
 
   const label = inputs.length === 1 ? inputs[0]!.name : `${inputs.length} files`;
   planEl.dataset.base = label; // minimal — updateEta appends "· ~Ns / loop"
   updateEta();
 
-  player.load(parts);
+  player.load(() => encoder.nextPart().toUpperCase(), seqLen);
   player.stop();
   player.start();
 }
