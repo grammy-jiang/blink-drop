@@ -90,14 +90,18 @@ export interface DecodedFile {
 }
 
 // Transport defaults (protocol §6), sized to the capability budget for the target
-// device. On-device the iPhone 15 Pro Max reports 1080p getUserMedia (my earlier
-// 720p estimate was conservative — see docs/23), so the budget is set to 1080p:
-//   1200 B → v30 QR (137²), ~5.1 px/module at 1080p = comfortable decode margin,
-//            and HALF the frames of the old 600 B default (171 vs 342).
+// device — iPhone 15 Pro Max, which reports 1080p getUserMedia on-device (docs/23).
+// The limit is NOT just px/module (can it decode) but decode TIME (how fast the
+// scanner runs): jsQR cost rises steeply with QR density, so a denser fragment
+// buys fewer frames but a slower scan — an interior optimum, not "bigger is better".
+// Measured on-device:
+//   800 B  → v24 QR (113²), ~4.1 px/module @1080p, scan holds **~19 fps** — GOOD.
+//   1200 B → v30 QR (137²): decodes, but scan CRATERED to **~4 fps** → far slower
+//            overall (the sender then out-runs the scanner). Reverted (test 2).
 //   2×     → fountain redundancy per loop (shortens the last-1% recovery).
-// Fragment + redundancy are overridable per-transfer via sender URL params so the
-// real optical ceiling can be found on-device (parseTransferParams in ui/sender.ts).
-export const DEFAULT_MAX_FRAGMENT_LENGTH = 1200; // bytes per UR fragment
+// Fragment + redundancy are overridable per-transfer via sender URL params; the
+// receiver's live scan-fps readout is the guide to the sweet spot on any device.
+export const DEFAULT_MAX_FRAGMENT_LENGTH = 800; // bytes per UR fragment
 export const DEFAULT_REDUNDANCY = 2; // fountain parts per systematic part, per loop
 // Clamp ranges for the URL-param overrides. Fragment ≤ 1500 B keeps the QR ≤ v33,
 // well under the v40 (177²) ceiling, so a bad param can't demand an impossible
