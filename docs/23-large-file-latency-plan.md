@@ -58,9 +58,21 @@ actually the safety net. Fix (shipped): keep the `FramePlayer` producer API but
 feed it a **fixed pool (systematic + mixtures) re-shuffled each pass**
 (`player/cycler.ts`): pure parts recur every pass (re-offered), and the per-pass
 shuffle varies a missed fragment's **scan phase** to break the aliasing behind the
-chronic miss. Hypothesis (aliasing tail); if it survives, next step is
-instrumentation, not another guess. (Shipped: 1080p camera, 800 B fragment,
-shuffled looped pool.)
+chronic miss. (Shipped: 1080p camera, 800 B fragment, shuffled looped pool.)
+
+**On-device test 5 — the shuffle HYPOTHESIS confirmed in a frame-drop test.**
+Instead of the physical camera (whose decode failures can't be simulated), drop
+frames through the REAL bc-ur decoder and measure frames to 99% vs 100%
+(`test/frame-loss.test.ts`). Findings (seqLen 82, 8 fps):
+- **Random (independent) loss causes NO tail** — every strategy completes smoothly
+  even at p=0.6. So the tail is *not* random blur (which is why the earlier
+  random-loss sims never reproduced it).
+- **Aliased loss** (the same display *positions* chronically fail) is the cause:
+  at 40% a **fixed-order loop STALLS at 99%** (15/15 runs), reproducing the bug.
+- The **shuffled loop completes** under the same aliased loss (~24 s, no tail) —
+  the fix is validated. Locked in as a regression test (fixed-order stalls,
+  shuffled escapes, random = no tail). This is the self-test that earlier "I can't
+  reproduce it" claims missed: simulate the *miss*, not the *optics*.
 
 ## 1. Problem
 
