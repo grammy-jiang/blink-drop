@@ -25,8 +25,19 @@ corrected one assumption, so the defaults were retuned:
   hard numbers.
 
 The budget proved self-consistent out of the box: sender ~8 fps ≤ the receiver's
-recommended ≤ 9. The §2 table below keeps the original 720p estimate as the
-reasoning trail; the shipped values are 1080p / 1200 B.
+recommended ≤ 9.
+
+**On-device test 2 (2026-07-10) — frag 1200 was too dense; reverted to 800.**
+The scan-fps readout caught it: at **1200 B / v30 QR** the receiver showed
+`1080p · scan ~4 fps · keep sender ≤ 2` — jsQR decode time rises steeply with QR
+density, so the scan rate **cratered from ~19 fps (at 800 B / v24) to ~4 fps**,
+and the sender then out-ran the scanner (19% after 25 s). Correction to the model:
+the limit is **not** px/module (1200 decodes fine) but **decode time → scan fps**.
+Optimal fragment maximises *(bytes/frame × scan fps)* — an **interior** optimum
+(~800 B on this device), **not** the densest decodable QR. **Default reverted
+1200 → 800 B.** The measure-and-show design paid off — the receiver reported the
+regression itself. (The §2 table's 720p figures remain the original estimate
+trail; shipped values: 1080p camera, 800 B fragment, 2× redundancy.)
 
 ## 1. Problem
 
