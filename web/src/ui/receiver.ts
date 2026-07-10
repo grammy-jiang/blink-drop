@@ -8,13 +8,7 @@ import {
   WrongPassphraseError,
 } from "../core/index.js";
 import { zipFiles } from "../receiver/bundle.js";
-import {
-  CameraError,
-  type CameraHandle,
-  type CameraStats,
-  isSecureContextOk,
-  startCamera,
-} from "../receiver/camera.js";
+import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
 import { safeName } from "../receiver/filename.js";
 import {
   clear as clearResume,
@@ -23,6 +17,7 @@ import {
   save as saveResume,
 } from "../receiver/resume.js";
 import { downloadFile, shareOrDownload, shareOrDownloadMany } from "../receiver/share.js";
+import { formatCaps, formatDuration } from "./receiver-format.js";
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
 const params = new URLSearchParams(location.search);
@@ -211,22 +206,6 @@ function main(): void {
     stallEl = app.querySelector("#stall");
     capsEl = app.querySelector("#caps");
     return app.querySelector("#mount") as HTMLElement;
-  }
-
-  // The receiver's measured capability. Devices have no back-channel, so this is
-  // shown to the human, who keeps the sender's speed ≤ ~½ the scan rate (docs/23).
-  function formatCaps(s: CameraStats): string {
-    const res =
-      s.height >= 1080 ? "1080p" : s.height >= 720 ? "720p" : s.height >= 480 ? "480p" : `${s.width}×${s.height}`;
-    const senderMax = Math.max(1, Math.floor(s.scanFps / 2));
-    return `${res} · scan ~${Math.round(s.scanFps)} fps · keep sender ≤ ${senderMax}`;
-  }
-
-  // "12s" under a minute, "1m 05s" beyond — for the live + final scan timer.
-  function formatDuration(ms: number): string {
-    const s = Math.round(ms / 1000);
-    if (s < 60) return `${s}s`;
-    return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
   }
 
   function updateProgress(): void {
