@@ -1,14 +1,13 @@
 import "../polyfill.js";
-import {
-  buildFilesMessage,
-  DEFAULT_MAX_FRAGMENT_LENGTH,
-  type FileInput,
-  qrPartStream,
-  systematicQrParts,
-} from "../core/index.js";
+import { buildFilesMessage, type FileInput, qrPartStream, systematicQrParts } from "../core/index.js";
 import { FramePlayer } from "../player/loop.js";
 import { renderTextToCanvas } from "../qr/render.js";
 import { describeSize } from "./size.js";
+import { parseTransferParams } from "./transfer-params.js";
+
+// Transport knobs sized to the device budget (docs/23), overridable per-transfer
+// via `?frag=` / `?redundancy=` for on-device tuning.
+const transfer = parseTransferParams(location.search);
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -134,9 +133,10 @@ async function processFiles(files: File[]): Promise<void> {
     statusEl.textContent = `Couldn't prepare: ${(e as Error).message}`;
     return;
   }
-  seqLen = systematicQrParts(message, DEFAULT_MAX_FRAGMENT_LENGTH).length;
-  // Loop the systematic parts plus a redundancy set of fountain parts (blueprint L5/§7).
-  const parts = qrPartStream(message, Math.ceil(seqLen * 1.5), DEFAULT_MAX_FRAGMENT_LENGTH);
+  seqLen = systematicQrParts(message, transfer.frag).length;
+  // Loop the systematic parts plus a redundancy set of fountain parts (blueprint
+  // L5/§7). Fragment size + redundancy come from the device budget / URL params.
+  const parts = qrPartStream(message, Math.ceil(seqLen * transfer.redundancy), transfer.frag);
 
   const label = inputs.length === 1 ? inputs[0]!.name : `${inputs.length} files`;
   planEl.dataset.base = label; // minimal — updateEta appends "· ~Ns / loop"

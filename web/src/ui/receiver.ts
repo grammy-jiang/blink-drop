@@ -8,7 +8,13 @@ import {
   WrongPassphraseError,
 } from "../core/index.js";
 import { zipFiles } from "../receiver/bundle.js";
-import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
+import {
+  CameraError,
+  type CameraHandle,
+  type CameraStats,
+  isSecureContextOk,
+  startCamera,
+} from "../receiver/camera.js";
 import { safeName } from "../receiver/filename.js";
 import {
   clear as clearResume,
@@ -186,6 +192,7 @@ function main(): void {
   // only its progress/stall text is updated per frame.
   let progressEl: HTMLElement | null = null;
   let stallEl: HTMLElement | null = null;
+  let capsEl: HTMLElement | null = null;
 
   function renderCollecting(): HTMLElement {
     app.innerHTML = `
@@ -193,10 +200,21 @@ function main(): void {
         <div class="viewfinder" id="mount"><div class="target"></div></div>
         <div class="progress" id="progress">Point at the animation…</div>
         <div class="stall" id="stall"></div>
+        <div class="caps" id="caps"></div>
       </div>`;
     progressEl = app.querySelector("#progress");
     stallEl = app.querySelector("#stall");
+    capsEl = app.querySelector("#caps");
     return app.querySelector("#mount") as HTMLElement;
+  }
+
+  // The receiver's measured capability. Devices have no back-channel, so this is
+  // shown to the human, who keeps the sender's speed ≤ ~½ the scan rate (docs/23).
+  function formatCaps(s: CameraStats): string {
+    const res =
+      s.height >= 1080 ? "1080p" : s.height >= 720 ? "720p" : s.height >= 480 ? "480p" : `${s.width}×${s.height}`;
+    const senderMax = Math.max(1, Math.floor(s.scanFps / 2));
+    return `${res} · scan ~${Math.round(s.scanFps)} fps · keep sender ≤ ${senderMax}`;
   }
 
   function updateProgress(): void {
@@ -243,12 +261,18 @@ function main(): void {
       return;
     }
     try {
-      camera = await startCamera(mount, (qr) => {
-        if (qr !== null && assembler.receiveQr(qr)) receivedParts.add(qr);
-        updateProgress();
-        persistMaybe();
-        if (assembler.isSuccess) void finish();
-      });
+      camera = await startCamera(
+        mount,
+        (qr) => {
+          if (qr !== null && assembler.receiveQr(qr)) receivedParts.add(qr);
+          updateProgress();
+          persistMaybe();
+          if (assembler.isSuccess) void finish();
+        },
+        (stats) => {
+          if (capsEl) capsEl.textContent = formatCaps(stats);
+        },
+      );
     } catch (e) {
       if (e instanceof CameraError && e.name === "InsecureContext") renderInsecure();
       else renderDenied(e instanceof CameraError ? cameraMessage(e) : String(e));

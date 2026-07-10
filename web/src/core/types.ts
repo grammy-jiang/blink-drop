@@ -89,8 +89,21 @@ export interface DecodedFile {
   bytes: Uint8Array; // original, verified against header.sha256
 }
 
-// Seed defaults (protocol §6) — tuned later by the sweep harness (roadmap M3).
-export const DEFAULT_MAX_FRAGMENT_LENGTH = 600; // bytes per UR fragment (~symbol v20)
+// Transport defaults (protocol §6), sized to the capability budget for the target
+// device — iPhone 15 Pro Max @ 720p (iOS Safari getUserMedia cap). See docs/23.
+//   800 B  → v24 QR (113²), ~4.1 px/module at 720p = the decode margin that already
+//            works reliably at 600 B / v21 / 480p, but with ~25% fewer frames.
+//   2×     → fountain redundancy per loop (shortens the last-1% recovery).
+// Fragment + redundancy are overridable per-transfer via sender URL params so the
+// real optical ceiling can be found on-device (parseTransferParams in ui/sender.ts).
+export const DEFAULT_MAX_FRAGMENT_LENGTH = 800; // bytes per UR fragment
+export const DEFAULT_REDUNDANCY = 2; // fountain parts per systematic part, per loop
+// Clamp ranges for the URL-param overrides. Fragment ≤ 1200 B keeps the QR ≤ v30,
+// well under the v40 (177²) ceiling, so a bad param can't demand an impossible symbol.
+export const MIN_FRAGMENT_LENGTH = 300;
+export const MAX_FRAGMENT_LENGTH = 1200;
+export const MIN_REDUNDANCY = 1;
+export const MAX_REDUNDANCY = 5;
 
 // Hard decompression ceiling (protocol §9, SG-2) — independent of header.origSize.
 export const HARD_MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024;
