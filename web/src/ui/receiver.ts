@@ -58,6 +58,11 @@ function main(): void {
   let lastProgressAt = 0;
   let receivedParts = new Set<string>();
   let lastSaveAt = 0;
+  // Scan timer (performance.now, monotonic): starts on the FIRST received frame
+  // (so aiming lag isn't counted) and freezes at reconstruction, BEFORE verify /
+  // decrypt (so Argon2 cost isn't counted) — "how long to receive everything".
+  let scanStartAt = 0;
+  let scanElapsedMs = 0;
 
   // Chromium (Android/desktop) fires beforeinstallprompt when the PWA is
   // installable; capture it to offer a real one-tap Install button. iOS Safari
@@ -217,14 +222,22 @@ function main(): void {
     return `${res} · scan ~${Math.round(s.scanFps)} fps · keep sender ≤ ${senderMax}`;
   }
 
+  // "12s" under a minute, "1m 05s" beyond — for the live + final scan timer.
+  function formatDuration(ms: number): string {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+  }
+
   function updateProgress(): void {
     if (!progressEl) return;
     const pct = assembler.percentComplete;
     const parts = assembler.expectedPartCount;
+    const elapsed = scanStartAt > 0 ? ` · ${formatDuration(performance.now() - scanStartAt)}` : "";
     if (pct <= 0 && parts <= 0) {
       progressEl.textContent = "Point at the animation…";
     } else {
-      progressEl.textContent = `Collecting ${Math.round(pct * 100)}%${parts > 0 ? ` · ~${parts} frames` : ""}`;
+      progressEl.textContent = `Collecting ${Math.round(pct * 100)}%${parts > 0 ? ` · ~${parts} frames` : ""}${elapsed}`;
     }
     // Stall detection: no percent gain for a while → escalate guidance.
     const now = Date.now();
@@ -250,6 +263,8 @@ function main(): void {
     lastSaveAt = 0;
     lastPercent = 0;
     lastProgressAt = Date.now();
+    scanStartAt = 0;
+    scanElapsedMs = 0;
     // Resume: replay the persisted parts into the fresh assembler before scanning.
     if (seedParts) {
       for (const p of seedParts) if (assembler.receiveQr(p)) receivedParts.add(p);
@@ -264,7 +279,10 @@ function main(): void {
       camera = await startCamera(
         mount,
         (qr) => {
-          if (qr !== null && assembler.receiveQr(qr)) receivedParts.add(qr);
+          if (qr !== null && assembler.receiveQr(qr)) {
+            receivedParts.add(qr);
+            if (scanStartAt === 0) scanStartAt = performance.now(); // first frame in
+          }
           updateProgress();
           persistMaybe();
           if (assembler.isSuccess) void finish();
@@ -295,6 +313,9 @@ function main(): void {
   }
 
   async function finish(): Promise<void> {
+    // Freeze the receive timer NOW — reconstruction is done; verify/decrypt below
+    // (Argon2 can be seconds) is not part of "receive everything".
+    if (scanStartAt > 0) scanElapsedMs = performance.now() - scanStartAt;
     stopCamera();
     const message = assembler.message();
     // Encrypted streams are detectable from the assembled message, so we can ask
@@ -368,6 +389,7 @@ function main(): void {
           </div>
           <div class="fname" id="fname"></div>
           <div class="meta" id="meta"></div>
+          <div class="meta rxtime" id="rxtime"></div>
           ${single ? "" : `<ul class="filelist" id="filelist"></ul>`}
           ${
             encrypted
@@ -391,6 +413,10 @@ function main(): void {
     (app.querySelector("#meta") as HTMLElement).textContent = single
       ? `${formatBytes(files[0]!.bytes.length)} · ${files[0]!.header.mediaType || "file"}`
       : `${files.length} files · ${formatBytes(total)}`;
+    // Receive time — shown when we timed this scan (scanStartAt set on the first
+    // received frame); blank for a resumed transfer that completed from its seed.
+    (app.querySelector("#rxtime") as HTMLElement).textContent =
+      scanStartAt > 0 ? `Received in ${formatDuration(scanElapsedMs)}` : "";
     if (!single) {
       const list = app.querySelector("#filelist") as HTMLElement;
       for (const f of files) {

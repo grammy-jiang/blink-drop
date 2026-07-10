@@ -90,18 +90,20 @@ export interface DecodedFile {
 }
 
 // Transport defaults (protocol §6), sized to the capability budget for the target
-// device — iPhone 15 Pro Max @ 720p (iOS Safari getUserMedia cap). See docs/23.
-//   800 B  → v24 QR (113²), ~4.1 px/module at 720p = the decode margin that already
-//            works reliably at 600 B / v21 / 480p, but with ~25% fewer frames.
+// device. On-device the iPhone 15 Pro Max reports 1080p getUserMedia (my earlier
+// 720p estimate was conservative — see docs/23), so the budget is set to 1080p:
+//   1200 B → v30 QR (137²), ~5.1 px/module at 1080p = comfortable decode margin,
+//            and HALF the frames of the old 600 B default (171 vs 342).
 //   2×     → fountain redundancy per loop (shortens the last-1% recovery).
 // Fragment + redundancy are overridable per-transfer via sender URL params so the
 // real optical ceiling can be found on-device (parseTransferParams in ui/sender.ts).
-export const DEFAULT_MAX_FRAGMENT_LENGTH = 800; // bytes per UR fragment
+export const DEFAULT_MAX_FRAGMENT_LENGTH = 1200; // bytes per UR fragment
 export const DEFAULT_REDUNDANCY = 2; // fountain parts per systematic part, per loop
-// Clamp ranges for the URL-param overrides. Fragment ≤ 1200 B keeps the QR ≤ v30,
-// well under the v40 (177²) ceiling, so a bad param can't demand an impossible symbol.
+// Clamp ranges for the URL-param overrides. Fragment ≤ 1500 B keeps the QR ≤ v33,
+// well under the v40 (177²) ceiling, so a bad param can't demand an impossible
+// symbol — and leaves headroom to sweep above the default without a redeploy.
 export const MIN_FRAGMENT_LENGTH = 300;
-export const MAX_FRAGMENT_LENGTH = 1200;
+export const MAX_FRAGMENT_LENGTH = 1500;
 export const MIN_REDUNDANCY = 1;
 export const MAX_REDUNDANCY = 5;
 

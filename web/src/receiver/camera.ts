@@ -46,11 +46,13 @@ export async function startCamera(
   }
   let stream: MediaStream;
   try {
-    // Request 720p — iOS Safari caps getUserMedia there, and without asking it
-    // hands back a ~480p default that starves denser QR of pixels (docs/23).
-    // `ideal` is a soft constraint: it degrades, never throws, on lesser devices.
+    // Request 1080p — the iPhone 15 Pro Max delivers it (confirmed on-device), and
+    // more pixels/module is what lets the denser default fragment decode reliably.
+    // Without asking, iOS hands back a ~480p default that starves the QR of pixels.
+    // `ideal` is a soft constraint: it degrades, never throws, on lesser devices —
+    // and the receiver shows the resolution it actually got, so nobody is misled.
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
     });
   } catch (e) {
     const name = (e as Error).name;
