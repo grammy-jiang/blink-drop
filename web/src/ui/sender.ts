@@ -1,5 +1,6 @@
 import "../polyfill.js";
-import { buildFilesMessage, type FileInput, makeEncoder, systematicQrParts } from "../core/index.js";
+import { buildFilesMessage, type FileInput, qrPartStream, systematicQrParts } from "../core/index.js";
+import { lcg, shuffledCycler } from "../player/cycler.js";
 import { FramePlayer } from "../player/loop.js";
 import { renderTextToCanvas } from "../qr/render.js";
 import { describeSize } from "./size.js";
@@ -134,19 +135,17 @@ async function processFiles(files: File[]): Promise<void> {
     return;
   }
   seqLen = systematicQrParts(message, transfer.frag).length;
-  // Stream fountain parts CONTINUOUSLY: one encoder, its nextPart() called per
-  // displayed frame — systematic parts first, then an ENDLESS run of fresh
-  // mixtures (blueprint L5/§7). Unlike a fixed looped set, a missed fragment is
-  // recovered by the next novel mixture, not by waiting a loop boundary — this is
-  // the fix for the residual last-1% tail (docs/23). `redundancy` is retired as a
-  // knob: an endless stream has no fixed redundancy multiple.
-  const encoder = makeEncoder(message, transfer.frag);
+  // A fixed pool — systematic (pure) parts + an equal set of fountain mixtures
+  // (blueprint L5/§7) — played on a loop that is RE-SHUFFLED each pass. Pure parts
+  // recur every pass so a frame missed near the end is re-offered, and the shuffle
+  // varies its scan phase to break the aliasing behind the last-1% tail (docs/23).
+  const pool = qrPartStream(message, seqLen * 2, transfer.frag);
 
   const label = inputs.length === 1 ? inputs[0]!.name : `${inputs.length} files`;
   planEl.dataset.base = label; // minimal — updateEta appends "· ~Ns / loop"
   updateEta();
 
-  player.load(() => encoder.nextPart().toUpperCase(), seqLen);
+  player.load(shuffledCycler(pool, lcg(pool.length)), seqLen);
   player.stop();
   player.start();
 }

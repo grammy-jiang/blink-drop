@@ -46,12 +46,21 @@ boundary to recur. Fix (shipped): the sender now **streams `encoder.nextPart()`
 continuously** — systematic parts first, then an endless run of fresh fountain
 mixtures — so a gap is filled by the next novel mixture, not a loop wait. Every
 scanned frame is new progress, so the "stuck at 99%" feeling is gone. `FramePlayer`
-now takes a frame *producer* instead of a fixed array; **the `redundancy` knob is
-retired** (an endless stream has no fixed multiple). This reverses the earlier
-"out of scope" call below — deprioritised for *overall* speed, but it is the right
-fix for the *tail* specifically, which was the actual complaint. (The §2 table's
-720p figures remain the original estimate trail; shipped: 1080p camera, 800 B
-fragment, continuous fountain stream.)
+now takes a frame *producer* instead of a fixed array; the `redundancy` knob was
+retired.
+
+**On-device test 4 (2026-07-10) — continuous was WORSE; reverted to a SHUFFLED
+loop.** Continuous made the tail worse, not better: **38 s to 99%, then 33 s for
+the last 1%.** Cause: bc-ur shows each systematic (pure) part **exactly once**,
+then only mixtures — so a fragment missed near the end can *never* be re-offered
+as a pure part and its recovery stalls. The fixed loop's repeated pure parts were
+actually the safety net. Fix (shipped): keep the `FramePlayer` producer API but
+feed it a **fixed pool (systematic + mixtures) re-shuffled each pass**
+(`player/cycler.ts`): pure parts recur every pass (re-offered), and the per-pass
+shuffle varies a missed fragment's **scan phase** to break the aliasing behind the
+chronic miss. Hypothesis (aliasing tail); if it survives, next step is
+instrumentation, not another guess. (Shipped: 1080p camera, 800 B fragment,
+shuffled looped pool.)
 
 ## 1. Problem
 
@@ -142,8 +151,10 @@ negotiate the budget at runtime. Chosen resolution (static + capability display)
 
 ## 7. Out of scope
 
-- Continuous `nextPart()` streaming — ~~out of scope~~ **SHIPPED (test 3 above).**
-  Deprioritised for overall speed, but adopted as the fix for the residual last-1%
-  tail (its real strength). Retired the `redundancy` knob.
+- Continuous `nextPart()` streaming — tried (test 3) then **REVERTED** (test 4):
+  it worsened the tail because pure parts appear only once. Current transport is a
+  shuffled looped pool (systematic + mixtures).
 - Manual chunking — measured neutral-to-worse for wall-clock; dropped.
 - CPU-adaptive scan interval — deferred (measure-and-show only for now).
+- Tail instrumentation (capturing-but-not-solving vs not-capturing) — the fallback
+  if the shuffle doesn't kill the residual tail.
