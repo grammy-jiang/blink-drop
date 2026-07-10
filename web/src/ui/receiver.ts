@@ -8,13 +8,7 @@ import {
   WrongPassphraseError,
 } from "../core/index.js";
 import { zipFiles } from "../receiver/bundle.js";
-import {
-  CameraError,
-  type CameraHandle,
-  type CameraStats,
-  isSecureContextOk,
-  startCamera,
-} from "../receiver/camera.js";
+import { CameraError, type CameraHandle, isSecureContextOk, startCamera } from "../receiver/camera.js";
 import { safeName } from "../receiver/filename.js";
 import {
   clear as clearResume,
@@ -23,6 +17,7 @@ import {
   save as saveResume,
 } from "../receiver/resume.js";
 import { downloadFile, shareOrDownload, shareOrDownloadMany } from "../receiver/share.js";
+import { formatCaps, formatDuration } from "./receiver-format.js";
 
 // If a debug flag is present, load the M0 regression harness instead of the app.
 const params = new URLSearchParams(location.search);
@@ -58,6 +53,11 @@ function main(): void {
   let lastProgressAt = 0;
   let receivedParts = new Set<string>();
   let lastSaveAt = 0;
+  // Scan timer (performance.now, monotonic): starts on the FIRST received frame
+  // (so aiming lag isn't counted) and freezes at reconstruction, BEFORE verify /
+  // decrypt (so Argon2 cost isn't counted) — "how long to receive everything".
+  let scanStartAt = 0;
+  let scanElapsedMs = 0;
 
   // Chromium (Android/desktop) fires beforeinstallprompt when the PWA is
   // installable; capture it to offer a real one-tap Install button. iOS Safari
@@ -208,23 +208,15 @@ function main(): void {
     return app.querySelector("#mount") as HTMLElement;
   }
 
-  // The receiver's measured capability. Devices have no back-channel, so this is
-  // shown to the human, who keeps the sender's speed ≤ ~½ the scan rate (docs/23).
-  function formatCaps(s: CameraStats): string {
-    const res =
-      s.height >= 1080 ? "1080p" : s.height >= 720 ? "720p" : s.height >= 480 ? "480p" : `${s.width}×${s.height}`;
-    const senderMax = Math.max(1, Math.floor(s.scanFps / 2));
-    return `${res} · scan ~${Math.round(s.scanFps)} fps · keep sender ≤ ${senderMax}`;
-  }
-
   function updateProgress(): void {
     if (!progressEl) return;
     const pct = assembler.percentComplete;
     const parts = assembler.expectedPartCount;
+    const elapsed = scanStartAt > 0 ? ` · ${formatDuration(performance.now() - scanStartAt)}` : "";
     if (pct <= 0 && parts <= 0) {
       progressEl.textContent = "Point at the animation…";
     } else {
-      progressEl.textContent = `Collecting ${Math.round(pct * 100)}%${parts > 0 ? ` · ~${parts} frames` : ""}`;
+      progressEl.textContent = `Collecting ${Math.round(pct * 100)}%${parts > 0 ? ` · ~${parts} frames` : ""}${elapsed}`;
     }
     // Stall detection: no percent gain for a while → escalate guidance.
     const now = Date.now();
@@ -250,6 +242,8 @@ function main(): void {
     lastSaveAt = 0;
     lastPercent = 0;
     lastProgressAt = Date.now();
+    scanStartAt = 0;
+    scanElapsedMs = 0;
     // Resume: replay the persisted parts into the fresh assembler before scanning.
     if (seedParts) {
       for (const p of seedParts) if (assembler.receiveQr(p)) receivedParts.add(p);
@@ -264,7 +258,10 @@ function main(): void {
       camera = await startCamera(
         mount,
         (qr) => {
-          if (qr !== null && assembler.receiveQr(qr)) receivedParts.add(qr);
+          if (qr !== null && assembler.receiveQr(qr)) {
+            receivedParts.add(qr);
+            if (scanStartAt === 0) scanStartAt = performance.now(); // first frame in
+          }
           updateProgress();
           persistMaybe();
           if (assembler.isSuccess) void finish();
@@ -295,6 +292,9 @@ function main(): void {
   }
 
   async function finish(): Promise<void> {
+    // Freeze the receive timer NOW — reconstruction is done; verify/decrypt below
+    // (Argon2 can be seconds) is not part of "receive everything".
+    if (scanStartAt > 0) scanElapsedMs = performance.now() - scanStartAt;
     stopCamera();
     const message = assembler.message();
     // Encrypted streams are detectable from the assembled message, so we can ask
@@ -368,6 +368,7 @@ function main(): void {
           </div>
           <div class="fname" id="fname"></div>
           <div class="meta" id="meta"></div>
+          <div class="meta rxtime" id="rxtime"></div>
           ${single ? "" : `<ul class="filelist" id="filelist"></ul>`}
           ${
             encrypted
@@ -391,6 +392,10 @@ function main(): void {
     (app.querySelector("#meta") as HTMLElement).textContent = single
       ? `${formatBytes(files[0]!.bytes.length)} · ${files[0]!.header.mediaType || "file"}`
       : `${files.length} files · ${formatBytes(total)}`;
+    // Receive time — shown when we timed this scan (scanStartAt set on the first
+    // received frame); blank for a resumed transfer that completed from its seed.
+    (app.querySelector("#rxtime") as HTMLElement).textContent =
+      scanStartAt > 0 ? `Received in ${formatDuration(scanElapsedMs)}` : "";
     if (!single) {
       const list = app.querySelector("#filelist") as HTMLElement;
       for (const f of files) {

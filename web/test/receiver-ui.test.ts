@@ -131,6 +131,8 @@ describe("receiver UI — boot + scan → verify", () => {
     expect(q(".badge")?.textContent).toContain("Verified");
     expect(q("#fname")?.textContent).toBe("hello.txt");
     expect(q("#meta")?.textContent).toContain("text/plain");
+    // Scan timer: we received frames, so the receive time is shown.
+    expect(q("#rxtime")?.textContent).toContain("Received in");
   });
 
   it("shares the verified file via the OS sheet", async () => {

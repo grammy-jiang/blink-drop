@@ -3,7 +3,30 @@
 | | |
 |---|---|
 | **Status** | Draft v0.2 — cut the "stuck at 99%" wait on large (200 KB+) transfers by matching the software knobs to the device (2026-07-10) |
-| **Scope** | A **capability budget**: every software knob (fragment, redundancy, sender fps) sized to a hardware limit (camera resolution, CPU decode rate). Sender defaults tuned to the iPhone 15 Pro Max @ 720p; the **receiver measures and displays its real capability** so the human can match the sender to it. Fragment + redundancy live-tunable via sender URL params. **No wire-format change.** |
+| **Scope** | A **capability budget**: every software knob (fragment, redundancy, sender fps) sized to a hardware limit (camera resolution, CPU decode rate). Sender defaults tuned to the iPhone 15 Pro Max; the **receiver measures and displays its real capability** so the human can match the sender to it. Fragment + redundancy live-tunable via sender URL params. **No wire-format change.** |
+
+## Update — on-device results (2026-07-10)
+
+First real-device test (15 Pro Max) confirmed the fix — **no last-1% wait** — and
+corrected one assumption, so the defaults were retuned:
+
+- **The device reports 1080p `getUserMedia`, not 720p.** My 720p figure below (from
+  stale web sources) was conservative; the receiver's capability line showed
+  `1080p · scan ~19 fps · keep sender ≤ 9` on-device. The A17 scans 1080p at
+  ~19 fps, so there is far more pixel headroom than budgeted.
+- **Camera request 720p → 1080p** (`camera.ts`) — match the reality, and help
+  devices that honour the down-scale.
+- **Default fragment 800 → 1200 B** (v30 QR, ~5.1 px/module at 1080p) — **half**
+  the frames of the original 600 B. Clamp ceiling raised 1200 → 1500 for upward
+  sweeps.
+- **Scan timer added** — starts on the first received frame (excludes aiming),
+  freezes at reconstruction (excludes verify/decrypt), shown live during
+  Collecting and as "Received in Ns" on the Verified screen. Turns the sweep into
+  hard numbers.
+
+The budget proved self-consistent out of the box: sender ~8 fps ≤ the receiver's
+recommended ≤ 9. The §2 table below keeps the original 720p estimate as the
+reasoning trail; the shipped values are 1080p / 1200 B.
 
 ## 1. Problem
 
